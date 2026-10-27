@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { diagnose, generateGuide } from "@/lib/ai/diagnosis";
 import { DiagnosisSchema, IntakeSchema } from "@/lib/ai/schemas";
+import { createQuotedJob } from "@/lib/jobs/service";
 import { getDemoOwner } from "@/lib/session";
 import { saveImageUpload } from "@/lib/uploads";
 
@@ -48,6 +49,19 @@ export async function createDevice(formData: FormData) {
     back(e instanceof Error ? e.message : "Something went wrong. Please try again.", intake.scenario);
   }
   redirect(`/owner/device/${deviceId}`);
+}
+
+export async function createQuote(formData: FormData) {
+  const deviceId = String(formData.get("deviceId") ?? "");
+  const pickup = formData.get("pickup") === "on";
+  let jobId: string;
+  try {
+    jobId = (await createQuotedJob(deviceId, pickup)).id;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Could not build a quote.";
+    redirect(`/owner/device/${deviceId}?error=${encodeURIComponent(msg)}`);
+  }
+  redirect(`/jobs/${jobId}`);
 }
 
 export async function createGuide(formData: FormData) {

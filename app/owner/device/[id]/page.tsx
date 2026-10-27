@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { DiagnosisSchema, type RepairPath } from "@/lib/ai/schemas";
-import { createGuide } from "../../actions";
+import { createGuide, createQuote } from "../../actions";
 import { Badge, Card } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
@@ -25,6 +25,7 @@ export default async function DevicePage(props: PageProps<"/owner/device/[id]">)
   const device = await db.device.findUnique({ where: { id } });
   if (!device?.diagnosisJson) notFound();
   const d = DiagnosisSchema.parse(JSON.parse(device.diagnosisJson));
+  const openJob = await db.job.findFirst({ where: { deviceId: id, status: { not: "payout_released" } } });
   const path = PATH_INFO[d.recommended_path];
   const partsTotal = d.estimated_parts.reduce((s, p) => s + p.price_usd, 0);
   const blocked = d.safety_risk.level === "high";
@@ -107,6 +108,19 @@ export default async function DevicePage(props: PageProps<"/owner/device/[id]">)
             <ul className="mt-1 list-disc pl-5">{d.gate_notes.map((n) => <li key={n}>{n}</li>)}</ul>
           </div>
         )}
+        {d.recommended_path === "technician" &&
+          (openJob ? (
+            <Link href={`/jobs/${openJob.id}`} className={buttonVariants()}>View your booking</Link>
+          ) : (
+            <form action={createQuote} className="space-y-3 rounded-lg border border-border p-4">
+              <input type="hidden" name="deviceId" value={device.id} />
+              <label className="flex min-h-11 items-center gap-3">
+                <input type="checkbox" name="pickup" className="h-5 w-5" />
+                <span>Add pickup and delivery</span>
+              </label>
+              <SubmitButton pendingText="Building quote…">Get a quote and book</SubmitButton>
+            </form>
+          ))}
         {d.diy_allowed ? (
           <form action={createGuide}>
             <input type="hidden" name="deviceId" value={device.id} />

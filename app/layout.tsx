@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
+import { Toaster } from "sonner";
 import "./globals.css";
 import { DemoBanner } from "@/components/demo-banner";
 import { SiteHeader } from "@/components/site-header";
@@ -17,6 +18,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" className={`${geistSans.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
         <a href="#main" className="sr-only focus:not-sr-only focus:p-3">Skip to content</a>
+        <Toaster richColors position="top-center" />
         <DemoBanner />
         <SiteHeader />
         <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>

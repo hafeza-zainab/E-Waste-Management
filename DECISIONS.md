@@ -20,3 +20,10 @@
 | 16 | DIY guide route re-checks `diy_allowed` on read, and `generateGuide` refuses when it is false. | Defence in depth for the safety rule. |
 | 17 | Uploads are identified by magic bytes, limited to 4 MB, saved to `public/uploads` with random names. | Never trust client MIME type or filename. Files are ephemeral on Render free tier. |
 | 18 | Booking/quote CTAs for technician, donate and recycle paths are intentionally absent until Phases 3, 5 and 6. | No fake buttons. |
+| 19 | PayPal base URL is hard-coded to `api-m.sandbox.paypal.com`. | The app can never touch live money. |
+| 20 | Checkout uses intent `AUTHORIZE`: funds are held at approval and captured only on verified completion (Phase 4). | Matches the "release only after verified repair" promise without a platform balance. Sandbox authorizations last 29 days. |
+| 21 | Without PayPal credentials the app runs a clearly labelled local simulation (`SIM-` ids, same server flow, banner says so). | Judges can run the full flow with no keys. |
+| 22 | Order amount is always read from the stored quote in the DB; the browser only sends a job id. The authorize route checks the order id belongs to the job. | Prevents amount tampering and cross-job authorization. |
+| 23 | PayPal-Request-Id is deterministic per job/order (`reloop-order-<job>`, `reloop-authorize-<order>`); state changes are conditional transitions (`updateMany where status = from`); webhook event ids are unique. | Retries, double clicks and webhook replays are harmless. |
+| 24 | Webhook route verifies signatures with PayPal's verify-webhook-signature API and only trusts `*.paypal.com` cert URLs. A dev-only `/api/paypal/webhook/simulate` replays the same handler without a signature. | Safe by default, testable locally. Simulate route is 404 in production unless PayPal is simulated. |
+| 25 | Platform fee is deducted from the technician's share, shown on the quote. The customer pays exactly the quoted total. | Transparent for both sides. |

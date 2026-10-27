@@ -129,3 +129,13 @@ model ImpactEvent {
   co2eKg      Float
   createdAt   DateTime @default(now())
 }
+
+// Idempotency log for PayPal webhooks: a given event id is processed once.
+model WebhookEvent {
+  id         String   @id @default(cuid())
+  eventId    String   @unique
+  type       String
+  jobId      String?
+  simulated  Boolean  @default(false)
+  receivedAt DateTime @default(now())
+}
