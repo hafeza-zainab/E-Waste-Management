@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { getSession } from "@/lib/session";
+import { getCurrentTechnician, getSession } from "@/lib/session";
 import { switchRole } from "@/lib/actions";
 
 const links = [
@@ -10,7 +10,8 @@ const links = [
 ];
 
 export async function SiteHeader() {
-  const { role, techId } = await getSession();
+  const { role } = await getSession();
+  const current = await getCurrentTechnician();
   const techs = await db.technician.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
   return (
     <header className="border-b border-border bg-card">
@@ -32,8 +33,7 @@ export async function SiteHeader() {
             <option value="technician">Technician</option>
           </select>
           <label htmlFor="techId" className="sr-only">Acting as technician</label>
-          <select id="techId" name="techId" defaultValue={techId ?? ""} className="min-h-11 rounded-lg border border-border bg-white px-2 text-sm">
-            <option value="">Technician: first</option>
+          <select id="techId" name="techId" defaultValue={current.id} className="min-h-11 rounded-lg border border-border bg-white px-2 text-sm">
             {techs.map((t) => (
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}

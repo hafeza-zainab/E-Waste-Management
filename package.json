@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "paypal:check": "tsx --env-file=.env scripts/paypal-check.ts",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "setup": "npm install && prisma generate && prisma migrate deploy && prisma db seed"

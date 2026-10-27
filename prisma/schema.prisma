@@ -69,7 +69,15 @@ model Job {
   paypalCaptureId    String?
   payoutBatchId      String?
   payoutStatus       String?
-  payoutMode         String? // paypal_sandbox | fallback_ledger
+  payoutMode         String? // paypal_sandbox | simulated (| fallback_ledger on seeded rows)
+  payoutItemId       String?
+  payoutNote         String? // plain-words explanation shown in the UI (simulated reason, unclaimed, ...)
+  payoutError        String? // last payout failure, cleared on success
+  payoutAttempt      Int          @default(0) // bumps only after PayPal definitively failed an item; part of sender_batch_id
+  authSimulated      Boolean      @default(false) // true = authorization never existed at PayPal (SIMULATED)
+  authorizedAt       DateTime?
+  reauthCount        Int          @default(0)
+  problemReport      String? // set by the owner; blocks capture until the technician re-uploads proof
   proofPhotoPath     String?
   proofNotes         String?
   customerRating     Int?

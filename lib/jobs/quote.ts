@@ -73,11 +73,18 @@ export interface QuoteInput {
   technicianId?: string;
 }
 
+export class NoTechnicianError extends Error {
+  constructor(public deviceType: string) {
+    super(`No technician is available for ${deviceType} repairs yet. We never match a device to a technician without that skill.`);
+    this.name = "NoTechnicianError";
+  }
+}
+
 /** Deterministic itemised quote. Throws when no technician can repair this device type. */
 export function buildQuote(input: QuoteInput): Quote {
   const ranked = rankTechnicians(input.deviceType, input.technicians);
   const match = input.technicianId ? ranked.find((m) => m.tech.id === input.technicianId) : ranked[0];
-  if (!match) throw new Error(`No technician available for ${input.deviceType}`);
+  if (!match) throw new NoTechnicianError(input.deviceType);
 
   const hours = Math.max(0.5, Math.round(input.laborHours * 4) / 4);
   const lines: Quote["lines"] = [

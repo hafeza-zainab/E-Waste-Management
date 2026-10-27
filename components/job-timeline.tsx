@@ -9,12 +9,19 @@ interface Event {
 
 /** Vertical lifecycle timeline: done, current and upcoming steps with the event note and time. */
 export function JobTimeline({ status, events }: { status: JobStatus; events: Event[] }) {
-  const current = JOB_STATUSES.indexOf(status);
+  // Off-path states (failed/cancelled/expired) show the last happy-path step reached, plus a note below.
+  const reached = JOB_STATUSES.includes(status)
+    ? status
+    : status === "payout_failed"
+      ? "customer_confirmed"
+      : ([...events].reverse().find((e) => JOB_STATUSES.includes(e.status as JobStatus) && e.status !== status)?.status as JobStatus | undefined) ?? "quoted";
+  const current = JOB_STATUSES.indexOf(reached);
   return (
     <ol aria-label="Job progress" className="space-y-0">
       {JOB_STATUSES.map((s, i) => {
         const ev = [...events].reverse().find((e) => e.status === s);
         const done = i < current || (i === current && status === "payout_released");
+        const offPathHere = i === current && !JOB_STATUSES.includes(status) && status !== "payout_failed";
         const isCurrent = i === current && !done;
         return (
           <li key={s} className="flex gap-3" aria-current={isCurrent ? "step" : undefined}>
@@ -33,6 +40,8 @@ export function JobTimeline({ status, events }: { status: JobStatus; events: Eve
             </div>
             <div className="pb-5">
               <p className={cn("font-semibold", !done && !isCurrent && "text-muted")}>{STATUS_LABELS[s]}</p>
+              {offPathHere && <p className="text-sm font-semibold text-danger">Stopped: {STATUS_LABELS[status]}</p>}
+              {i === current && status === "payout_failed" && <p className="text-sm font-semibold text-danger">Payout failed, retry available</p>}
               {ev && (
                 <p className="text-sm text-muted">
                   {ev.createdAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}

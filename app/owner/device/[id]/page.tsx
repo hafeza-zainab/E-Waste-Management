@@ -25,7 +25,7 @@ export default async function DevicePage(props: PageProps<"/owner/device/[id]">)
   const device = await db.device.findUnique({ where: { id } });
   if (!device?.diagnosisJson) notFound();
   const d = DiagnosisSchema.parse(JSON.parse(device.diagnosisJson));
-  const openJob = await db.job.findFirst({ where: { deviceId: id, status: { not: "payout_released" } } });
+  const openJob = await db.job.findFirst({ where: { deviceId: id, status: { notIn: ["payout_released", "cancelled", "authorization_expired"] } } });
   const path = PATH_INFO[d.recommended_path];
   const partsTotal = d.estimated_parts.reduce((s, p) => s + p.price_usd, 0);
   const blocked = d.safety_risk.level === "high";
@@ -82,7 +82,8 @@ export default async function DevicePage(props: PageProps<"/owner/device/[id]">)
         </Card>
 
         <Card>
-          <h2 className="mb-3 text-lg font-bold">Estimated cost</h2>
+          <h2 className="mb-1 text-lg font-bold">Cost estimate</h2>
+          <p className="mb-3 text-xs text-muted">A rough AI guide. Your real <strong>quote</strong> uses the matched technician&apos;s actual hourly rate and may differ.</p>
           {d.estimated_parts.length === 0 && d.estimated_labor.cost_usd === 0 ? (
             <p className="text-sm text-muted">No repair recommended, so no repair cost.</p>
           ) : (

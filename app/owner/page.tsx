@@ -40,7 +40,10 @@ export default async function OwnerPage() {
                 {d.jobs.map((j) => (
                   <p key={j.id} className="text-sm">
                     <Badge tone="good">{j.status.replaceAll("_", " ")}</Badge> {formatUsd(j.totalCents)} ·{" "}
-                    {j.technician?.name}
+                    {j.technician?.name} ·{" "}
+                    <Link href={`/jobs/${j.id}`} className="font-medium text-primary underline">
+                      {j.status === "payout_released" ? "View completed repair" : "View job"}
+                    </Link>
                   </p>
                 ))}
               </Card>

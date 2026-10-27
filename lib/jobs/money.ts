@@ -14,7 +14,7 @@ export interface PayoutSplit {
 /** Split a job total. The fee applies to the whole total, rounded half-up; the technician gets the remainder. */
 export function splitPayout(totalCents: number, feeBps = platformFeeBps()): PayoutSplit {
   if (!Number.isInteger(totalCents) || totalCents < 0) throw new Error("totalCents must be a non-negative integer");
-  const platformFeeCents = Math.round((totalCents * feeBps) / 10000);
+  const platformFeeCents = Math.floor((totalCents * feeBps + 5000) / 10000); // integer half-up, no float rounding
   return { totalCents, platformFeeCents, technicianCents: totalCents - platformFeeCents };
 }
 

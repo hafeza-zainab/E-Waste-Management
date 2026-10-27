@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
+import type { Principal } from "@/lib/jobs/permissions";
 
 // Minimal demo session: a role cookie (+ which technician you are acting as).
 // This is deliberately NOT authentication. See DECISIONS.md.
@@ -16,6 +17,13 @@ export async function getSession() {
 
 export async function getDemoOwner() {
   return db.owner.findFirstOrThrow({ orderBy: { id: "asc" } });
+}
+
+/** Who is acting, derived only from the session cookies. Lifecycle actions authorize against this, never against form fields. */
+export async function getPrincipal(): Promise<Principal> {
+  const { role } = await getSession();
+  if (role === "technician") return { kind: "technician", techId: (await getCurrentTechnician()).id };
+  return { kind: "owner", ownerId: (await getDemoOwner()).id };
 }
 
 export async function getCurrentTechnician() {

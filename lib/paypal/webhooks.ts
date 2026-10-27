@@ -6,7 +6,13 @@ export interface WebhookEvent {
   resource?: {
     id?: string;
     custom_id?: string;
-    supplementary_data?: { related_ids?: { order_id?: string } };
+    supplementary_data?: { related_ids?: { order_id?: string; authorization_id?: string } };
+    // PAYMENT.PAYOUTS-ITEM.* events
+    payout_item_id?: string;
+    payout_batch_id?: string;
+    sender_item_id?: string;
+    transaction_status?: string;
+    errors?: { name?: string; message?: string };
   };
 }
 

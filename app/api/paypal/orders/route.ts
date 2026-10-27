@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   try {
     const order = await createOrder(job.id, `ReLoop repair: ${job.device.brand} ${job.device.model}`, quote);
     await db.job.update({ where: { id: job.id }, data: { paypalOrderId: order.id } });
-    return NextResponse.json({ id: order.id, simulated: order.simulated });
+    return NextResponse.json({ id: order.id, simulated: order.simulated, approveUrl: order.approveUrl });
   } catch (e) {
     const status = e instanceof PayPalError ? 502 : 500;
     return NextResponse.json({ error: e instanceof PayPalError ? `PayPal error: ${e.message}` : "Could not create the order.", debugId: e instanceof PayPalError ? e.debugId : undefined }, { status });

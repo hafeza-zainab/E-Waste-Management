@@ -1,11 +1,11 @@
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { DiagnosisSchema } from "@/lib/ai/schemas";
-import { assertTransition, type JobStatus } from "./state-machine";
+import { assertTransition, type Actor, type JobStatus } from "./state-machine";
 import { buildQuote, QuoteSchema, type Quote } from "./quote";
 
 /** Statuses in which a device still has an unfinished job. */
-const OPEN = ["quoted", "paid", "accepted", "in_progress", "completed", "customer_confirmed"];
+const OPEN = ["quoted", "paid", "accepted", "in_progress", "completed", "customer_confirmed", "payout_failed"];
 
 export async function createQuotedJob(deviceId: string, pickup: boolean) {
   const device = await db.device.findUniqueOrThrow({ where: { id: deviceId } });
@@ -51,17 +51,18 @@ export function parseQuote(json: string | null): Quote | null {
 }
 
 /**
- * Atomic, idempotent transition: only succeeds if the job is still in `from`.
- * Returns false when another request already moved it (safe to treat as done).
+ * Atomic, idempotent transition through the one table of legal moves: only succeeds if the job
+ * is still in `from` and `actor` may make this move. Returns false when another request already moved it.
  */
 export async function transitionJob(
   jobId: string,
   from: JobStatus,
   to: JobStatus,
+  actor: Actor,
   data: Prisma.JobUncheckedUpdateManyInput = {},
   note?: string,
 ): Promise<boolean> {
-  assertTransition(from, to);
+  assertTransition(from, to, actor);
   return db.$transaction(async (tx) => {
     const res = await tx.job.updateMany({ where: { id: jobId, status: from }, data: { ...data, status: to } });
     if (res.count === 0) return false;
@@ -71,5 +72,12 @@ export async function transitionJob(
 }
 
 export async function markPaid(jobId: string, orderId: string, authorizationId: string, note: string) {
-  return transitionJob(jobId, "quoted", "paid", { paypalOrderId: orderId, paypalAuthId: authorizationId }, note);
+  return transitionJob(
+    jobId,
+    "quoted",
+    "paid",
+    "system",
+    { paypalOrderId: orderId, paypalAuthId: authorizationId, authSimulated: authorizationId.startsWith("SIM-"), authorizedAt: new Date() },
+    note,
+  );
 }
