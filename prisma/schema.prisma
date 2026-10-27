@@ -1,0 +1,128 @@
+// SQLite has no native enums in Prisma, so status/type fields are strings
+// validated in TypeScript (see lib/jobs/state-machine.ts and lib/ai/schemas.ts).
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Owner {
+  id      String   @id @default(cuid())
+  name    String
+  email   String   @unique
+  devices Device[]
+}
+
+model Technician {
+  id           String           @id @default(cuid())
+  name         String
+  city         String
+  bio          String
+  skills       String // comma separated: phone,laptop,tv,...
+  rating       Float
+  distanceKm   Float
+  hourlyCents  Int
+  paypalEmail  String // sandbox receiver for Payouts
+  isTrainee    Boolean          @default(false)
+  jobs         Job[]
+  repairs      VerifiedRepair[]
+}
+
+model Device {
+  id        String   @id @default(cuid())
+  ownerId   String
+  owner     Owner    @relation(fields: [ownerId], references: [id])
+  type      String // phone | laptop | tablet | tv | appliance | other
+  brand     String
+  model     String
+  ageYears  Int
+  problem   String
+  photoPath String?
+  scenario  String? // demo scenario key if created from a scripted case
+  createdAt DateTime @default(now())
+  jobs      Job[]
+}
+
+model Job {
+  id                 String       @id @default(cuid())
+  deviceId           String
+  device             Device       @relation(fields: [deviceId], references: [id])
+  technicianId       String?
+  technician         Technician?  @relation(fields: [technicianId], references: [id])
+  status             String // quoted | paid | accepted | in_progress | completed | customer_confirmed | payout_released
+  diagnosisJson      String // validated Diagnosis (zod)
+  quoteJson          String? // itemised quote
+  partsCents         Int          @default(0)
+  laborCents         Int          @default(0)
+  logisticsCents     Int          @default(0)
+  totalCents         Int          @default(0)
+  platformFeeCents   Int          @default(0)
+  payoutCents        Int          @default(0)
+  paypalOrderId      String?
+  paypalAuthId       String?
+  paypalCaptureId    String?
+  payoutBatchId      String?
+  payoutStatus       String?
+  payoutMode         String? // paypal_sandbox | fallback_ledger
+  proofPhotoPath     String?
+  proofNotes         String?
+  customerRating     Int?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  events             JobEvent[]
+  repair             VerifiedRepair?
+}
+
+model JobEvent {
+  id        String   @id @default(cuid())
+  jobId     String
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  status    String
+  note      String?
+  createdAt DateTime @default(now())
+}
+
+model VerifiedRepair {
+  id           String     @id @default(cuid())
+  jobId        String     @unique
+  job          Job        @relation(fields: [jobId], references: [id])
+  technicianId String
+  technician   Technician @relation(fields: [technicianId], references: [id])
+  deviceType   String
+  repairType   String
+  rating       Int
+  payoutRef    String?
+  completedAt  DateTime
+}
+
+model Donation {
+  id            String   @id @default(cuid())
+  donorName     String
+  amountCents   Int
+  paypalOrderId String?
+  paypalCaptureId String?
+  deviceId      String?
+  createdAt     DateTime @default(now())
+}
+
+model RecycleBooking {
+  id         String   @id @default(cuid())
+  deviceId   String
+  pickupDate String
+  recycler   String
+  kgDiverted Float
+  createdAt  DateTime @default(now())
+}
+
+// Outcomes feeding the impact dashboard (one row per device journey that ended).
+model ImpactEvent {
+  id          String   @id @default(cuid())
+  deviceType  String
+  outcome     String // repair | refurbish | donate | recycle
+  ewasteKg    Float
+  co2eKg      Float
+  createdAt   DateTime @default(now())
+}
