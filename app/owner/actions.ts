@@ -7,6 +7,7 @@ import { createQuotedJob } from "@/lib/jobs/service";
 import { getDemoOwner } from "@/lib/session";
 import { saveImageUpload } from "@/lib/uploads";
 import { SCENARIO_INTAKE, type ScenarioKey } from "@/lib/ai/fixtures";
+import { assertRate, RateLimitError } from "@/lib/security/rate-limit";
 import { advancePickup, bookPickup, PickupError } from "@/lib/recycling/pickup";
 
 function back(message: string, scenario?: string): never {
@@ -35,6 +36,8 @@ export async function createDevice(formData: FormData) {
 
   let deviceId: string;
   try {
+    await assertRate("diagnosis");
+    await assertRate("upload");
     const photo = await saveImageUpload(formData.get("photo"));
     const result = await diagnose(intake, photo ? { mediaType: photo.mediaType, base64: photo.base64 } : undefined);
     const owner = await getDemoOwner();
@@ -64,6 +67,7 @@ export async function createQuote(formData: FormData) {
   const pickup = formData.get("pickup") === "on";
   let jobId: string;
   try {
+    await assertRate("action");
     jobId = (await createQuotedJob(deviceId, pickup)).id;
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Could not build a quote.";
@@ -76,10 +80,11 @@ export async function bookRecycling(formData: FormData) {
   const deviceId = String(formData.get("deviceId") ?? "");
   let msg: string;
   try {
+    await assertRate("action");
     await bookPickup({ deviceId, address: String(formData.get("address") ?? ""), pickupDate: String(formData.get("pickupDate") ?? "") });
     msg = "ok=" + encodeURIComponent("Pickup booked with the demo recycling partner.");
   } catch (e) {
-    msg = "error=" + encodeURIComponent(e instanceof PickupError ? e.message : "Could not book the pickup.");
+    msg = "error=" + encodeURIComponent(e instanceof PickupError || e instanceof RateLimitError ? e.message : "Could not book the pickup.");
   }
   redirect(`/owner/device/${deviceId}?${msg}`);
 }
@@ -104,6 +109,7 @@ export async function createGuide(formData: FormData) {
   const diagnosis = DiagnosisSchema.parse(JSON.parse(device.diagnosisJson));
   let error: string | null = null;
   try {
+    await assertRate("diagnosis");
     const guide = await generateGuide(device, diagnosis);
     await db.device.update({ where: { id }, data: { guideJson: JSON.stringify(guide) } });
   } catch (e) {

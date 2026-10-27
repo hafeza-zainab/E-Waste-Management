@@ -3,6 +3,8 @@
  * app can never move real money. Secrets are read from the environment and are
  * never logged.
  */
+import { log } from "@/lib/log";
+
 export const PAYPAL_BASE = "https://api-m.sandbox.paypal.com";
 
 export type PaypalMode = "sandbox" | "simulated";
@@ -76,7 +78,7 @@ export async function paypalFetch<T>(
   if (!res.ok) {
     const issue = json.details?.[0]?.issue;
     // Log identifiers only: never tokens, headers or credentials.
-    console.error(`[paypal] ${init.method ?? "GET"} ${path} -> ${res.status} ${json.name ?? ""} ${issue ?? ""} debug_id=${json.debug_id ?? "n/a"}`);
+    log.error("paypal_error", { method: init.method ?? "GET", path: path.replace(/\/[A-Z0-9-]{10,}/g, "/:id"), status: res.status, name: json.name, issue, debug_id: json.debug_id });
     throw new PayPalError(json.details?.[0]?.description ?? json.message ?? "PayPal request failed.", res.status, issue, json.debug_id);
   }
   return json;

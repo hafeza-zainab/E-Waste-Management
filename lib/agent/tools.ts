@@ -6,6 +6,7 @@ import { IntakeSchema, type Diagnosis } from "@/lib/ai/schemas";
 import { buildQuote, NoTechnicianError, rankTechnicians, type Quote } from "@/lib/jobs/quote";
 import { parseQuote, persistQuote } from "@/lib/jobs/service";
 import { formatUsd } from "@/lib/jobs/money";
+import { log } from "@/lib/log";
 import { ApprovalError, requestApproval } from "./approval";
 import { createOrderWithApproval } from "./order";
 
@@ -311,7 +312,7 @@ export async function executeTool(name: string, rawArgs: unknown, ctx: AgentCont
     const out = await (tool as ToolDef<z.ZodType>).run(args, ctx);
     return done(out, (tool as ToolDef<z.ZodType>).summarizeInput(args));
   } catch (e) {
-    console.error(`[agent] tool ${name} failed:`, e instanceof Error ? e.message : e);
+    log.error("agent_tool_failed", { tool: name, error: e instanceof Error ? e.message : "unknown" });
     return done(fail(e instanceof Error ? e.message.slice(0, 200) : "Tool failed."), "");
   }
 }

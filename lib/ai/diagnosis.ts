@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
-import { CLAUDE_MODEL, isDemoMode } from "./config";
+import { CLAUDE_MODEL, isDemoMode, recordAiCall } from "./config";
 import { DIAGNOSIS_FIXTURES, GENERIC_FIXTURE, GUIDE_FIXTURES, type ScenarioKey } from "./fixtures";
 import { DIAGNOSIS_SYSTEM, GUIDE_SYSTEM, diagnosisUserText, guideUserText } from "./prompts";
 import { applySafetyGate } from "./safety";
@@ -42,6 +42,7 @@ async function callClaudeDiagnosis(i: Intake, photo?: PhotoInput): Promise<Model
   if (photo) content.push({ type: "image", source: { type: "base64", media_type: photo.mediaType, data: photo.base64 } });
   content.push({ type: "text", text: diagnosisUserText(i) });
 
+  recordAiCall();
   const res = await anthropic().messages.parse({
     model: CLAUDE_MODEL,
     max_tokens: 4000,
@@ -75,6 +76,7 @@ export async function generateGuide(
     const screen = /screen|display|glass/i.test(i.problem);
     return GuideSchema.parse(GUIDE_FIXTURES[screen ? "screen" : "generic"]);
   }
+  recordAiCall();
   const res = await anthropic().messages.parse({
     model: CLAUDE_MODEL,
     max_tokens: 4000,

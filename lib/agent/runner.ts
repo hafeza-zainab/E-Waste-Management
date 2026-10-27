@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
-import { CLAUDE_MODEL, isDemoMode } from "@/lib/ai/config";
+import { CLAUDE_MODEL, aiCapReached, isDemoMode, recordAiCall } from "@/lib/ai/config";
+import { log } from "@/lib/log";
 import { SCENARIO_INTAKE, type ScenarioKey } from "@/lib/ai/fixtures";
 import type { PhotoInput } from "@/lib/ai/diagnosis";
 import { formatUsd } from "@/lib/jobs/money";
@@ -33,6 +34,8 @@ export type ModelCaller = (args: { system: string; messages: Msg[]; signal: Abor
 
 let client: Anthropic | undefined;
 const liveCaller: ModelCaller = async ({ system, messages, signal }) => {
+  if (aiCapReached()) throw new Error("daily AI cap reached");
+  recordAiCall();
   client ??= new Anthropic();
   const res = await client.messages.create(
     { model: CLAUDE_MODEL, max_tokens: 1500, system, tools: modelToolSpecs(), messages: messages as Anthropic.MessageParam[] },
@@ -141,7 +144,7 @@ export async function runLive(trace: Trace, caller: ModelCaller, opts: { signal?
   } catch (e) {
     if (opts.signal?.aborted) return "stopped";
     emit({ type: "error", message: e instanceof Error && e.message === "timeout" ? "The agent timed out and was stopped. Nothing was charged." : "The agent hit an error and was stopped. Nothing was charged." });
-    if (!(e instanceof Error && e.message === "timeout")) console.error("[agent] live run failed:", e instanceof Error ? e.message : e);
+    if (!(e instanceof Error && e.message === "timeout")) log.error("agent_live_failed", { error: e instanceof Error ? e.message : "unknown" });
     return "failed";
   } finally {
     opts.signal?.removeEventListener("abort", stop);
@@ -236,6 +239,7 @@ export async function runAgent(req: RunRequest): Promise<{ runId: string; status
   const ctx: AgentContext = { runId: run.id, goal: req.goal, budgetCents, ownerId: req.ownerId, photo: req.photo, scenario: undefined, state: {} };
   const trace = new Trace(emit, ctx);
   emit({ type: "start", runId: run.id, mode, budgetCents });
+  if (mode === "scripted" && !req.forceMode && aiCapReached()) emit({ type: "narration", text: "Notice: today's live-AI limit has been reached, so this is a scripted demo run." });
 
   let status: "awaiting_approval" | "finished" | "stopped" | "failed" = "failed";
   try {
@@ -252,7 +256,7 @@ export async function runAgent(req: RunRequest): Promise<{ runId: string; status
       status = await runLive(trace, req.caller ?? liveCaller, { signal: req.signal, timeoutMs: req.timeoutMs });
     }
   } catch (e) {
-    console.error("[agent] run crashed:", e instanceof Error ? e.message : e);
+    log.error("agent_crashed", { error: e instanceof Error ? e.message : "unknown" });
     emit({ type: "error", message: "The agent hit an error and was stopped. Nothing was charged." });
   }
   emit({ type: "done", status });

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rateLimitResponse } from "@/lib/security/rate-limit";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { cancelJob } from "@/lib/jobs/lifecycle";
@@ -8,6 +9,8 @@ const Body = z.object({ approvalId: z.string().min(1).max(60) });
 
 /** "Change request": cancels the unpaid quote and expires the approval. */
 export async function POST(req: Request) {
+  const limited = rateLimitResponse(req, "approval");
+  if (limited) return limited;
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   const approval = await db.agentApproval.findUnique({ where: { id: parsed.data.approvalId } });

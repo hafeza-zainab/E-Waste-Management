@@ -2,6 +2,7 @@
 import { acceptJob, cancelJob, completeJob, confirmRepair, declineJob, rateJob, reportProblem, retryPayout, simulateBuyerApproval, startJob, uploadProof } from "@/lib/jobs/lifecycle";
 import { runAction } from "@/lib/jobs/run-action";
 import { getPrincipal } from "@/lib/session";
+import { assertRate } from "@/lib/security/rate-limit";
 import { saveImageUpload } from "@/lib/uploads";
 
 const str = (f: FormData, k: string) => String(f.get(k) ?? "");
@@ -53,6 +54,7 @@ export async function completeAction(f: FormData) {
     async () => {
       const who = await getPrincipal();
       // Identity and state are checked inside completeJob; validate the photo first so a bad file is reported plainly.
+      await assertRate("upload");
       const photo = await saveImageUpload(f.get("photo"));
       if (!photo) throw new Error("A proof photo is required.");
       return completeJob(id, who, { photoPath: photo.publicPath, notes: str(f, "notes") });
@@ -66,6 +68,7 @@ export async function reuploadProofAction(f: FormData) {
     "/technician",
     async () => {
       const who = await getPrincipal();
+      await assertRate("upload");
       const photo = await saveImageUpload(f.get("photo"));
       if (!photo) throw new Error("A proof photo is required.");
       return uploadProof(id, who, { photoPath: photo.publicPath, notes: str(f, "notes") });

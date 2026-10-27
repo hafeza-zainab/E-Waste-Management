@@ -1,8 +1,10 @@
 import { z } from "zod";
+import { bodyTooLarge, rateLimitResponse } from "@/lib/security/rate-limit";
 import type { PhotoInput } from "@/lib/ai/diagnosis";
 import { SCENARIO_INTAKE, type ScenarioKey } from "@/lib/ai/fixtures";
 import { runAgent, type AgentEvent } from "@/lib/agent/runner";
 import { dollarsToCents } from "@/lib/agent/budget-input";
+import { log } from "@/lib/log";
 import { getDemoOwner } from "@/lib/session";
 import { MAX_UPLOAD_BYTES, saveImageUpload } from "@/lib/uploads";
 
@@ -17,6 +19,10 @@ const Fields = z.object({
 
 /** Streams the agent's steps as newline-delimited JSON. Aborting the request (Stop button) stops the run. */
 export async function POST(req: Request) {
+  const limited = rateLimitResponse(req, "agent");
+  if (limited) return limited;
+  const tooBig = bodyTooLarge(req, 6 * 1024 * 1024);
+  if (tooBig) return tooBig;
   let form: FormData;
   try {
     form = await req.formData();
@@ -58,7 +64,7 @@ export async function POST(req: Request) {
       try {
         await runAgent({ goal: parsed.data.goal, budgetCents, photo, scenario, ownerId: owner.id, signal: req.signal, emit });
       } catch (e) {
-        console.error("[agent] run failed to start:", e instanceof Error ? e.message : e);
+        log.error("agent_start_failed", { error: e instanceof Error ? e.message : "unknown" });
         emit({ type: "error", message: "The agent could not start. Nothing was charged." });
         emit({ type: "done", status: "failed" });
       } finally {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rateLimitResponse } from "@/lib/security/rate-limit";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { ApprovalError } from "@/lib/agent/approval";
@@ -11,6 +12,8 @@ const Body = z.object({ jobId: z.string().min(1), approvalToken: z.string().max(
 
 /** Creates a PayPal order for a quoted job. The amount is read from the DB, never from the request. */
 export async function POST(req: Request) {
+  const limited = rateLimitResponse(req, "paypalOrder");
+  if (limited) return limited;
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid request." }, { status: 400 });
 

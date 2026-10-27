@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { centsToDecimalString } from "@/lib/jobs/money";
 import type { Quote } from "@/lib/jobs/quote";
+import { log } from "@/lib/log";
 import { isSimulatedId, paypalFetch, paypalMode } from "./client";
 
 const CURRENCY = "USD";
@@ -51,7 +52,7 @@ export function buildOrderPayload(jobId: string, description: string, quote: Quo
   };
 }
 
-export const appBaseUrl = () => process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+export const appBaseUrl = () => process.env.NEXT_PUBLIC_APP_URL || process.env.RENDER_EXTERNAL_URL || "http://localhost:3000";
 
 export interface CreatedOrder {
   id: string;
@@ -75,7 +76,7 @@ export const approveLink = (o: Pick<OrderResponse, "links">) => o.links?.find((l
 export async function createOrder(jobId: string, description: string, quote: Quote): Promise<CreatedOrder> {
   if (paypalMode() === "simulated") return { id: `SIM-ORDER-${randomUUID()}`, simulated: true, approveUrl: null };
   const body = buildOrderPayload(jobId, description, quote, appBaseUrl());
-  if (process.env.NODE_ENV !== "production") console.log("[paypal] create-order payload:", JSON.stringify(body)); // no secrets in here
+  if (process.env.NODE_ENV !== "production") log.info("paypal_create_order_payload", { jobId, amount: body.purchase_units[0].amount.value, items: body.purchase_units[0].items.length });
   const order = await paypalFetch<OrderResponse>("/v2/checkout/orders", {
     method: "POST",
     body,
