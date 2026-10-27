@@ -116,7 +116,7 @@ export default async function TechnicianPage() {
           {waiting.map((j) => (
             <Card key={j.id} className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <Link href={`/jobs/${j.id}`} className="font-semibold underline">{deviceLabel(j.device)}</Link>
+                <Link href={`/jobs/${j.id}`} className="inline-flex min-h-11 items-center font-semibold underline">{deviceLabel(j.device)}</Link>
                 <Badge tone={j.status === "payout_failed" ? "bad" : "warn"}>{STATUS_LABELS[j.status as JobStatus]}</Badge>
               </div>
               <Money j={j} pct={pct} />
@@ -140,7 +140,7 @@ export default async function TechnicianPage() {
         {closed.map((j) => (
           <Card key={j.id} className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <Link href={`/jobs/${j.id}`} className="font-semibold underline">{deviceLabel(j.device)}</Link>
+              <Link href={`/jobs/${j.id}`} className="inline-flex min-h-11 items-center font-semibold underline">{deviceLabel(j.device)}</Link>
               <span className="flex gap-2">
                 {j.payoutMode === "simulated" && SIM}
                 <Badge tone={j.status === "payout_released" ? "good" : "neutral"}>{STATUS_LABELS[j.status as JobStatus]}</Badge>

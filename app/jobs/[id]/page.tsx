@@ -44,7 +44,7 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
     <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
       <div className="space-y-6">
         <div>
-          <Link href={`/owner/device/${job.deviceId}`} className="text-sm text-primary underline">Back to diagnosis</Link>
+          <Link href={`/owner/device/${job.deviceId}`} className="inline-flex min-h-11 items-center text-sm text-primary underline">Back to diagnosis</Link>
           <h1 className="mt-1 text-3xl font-bold">{deviceLabel(job.device)} repair</h1>
           <p className="text-muted">
             {job.device.type} · Technician: {job.technician?.name ?? "unassigned"} · <Badge>{STATUS_LABELS[s]}</Badge>

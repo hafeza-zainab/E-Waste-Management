@@ -18,7 +18,7 @@ export async function SiteHeader() {
   return (
     <header className="border-b border-border bg-card">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-        <Link href="/" className="flex items-center gap-2 text-xl font-bold text-primary">
+        <Link href="/" className="flex min-h-11 items-center gap-2 text-xl font-bold text-primary">
           <span aria-hidden>♻</span> ReLoop
         </Link>
         <nav aria-label="Main" className="flex flex-wrap gap-1">
