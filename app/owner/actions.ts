@@ -6,6 +6,7 @@ import { DiagnosisSchema, IntakeSchema } from "@/lib/ai/schemas";
 import { createQuotedJob } from "@/lib/jobs/service";
 import { getDemoOwner } from "@/lib/session";
 import { saveImageUpload } from "@/lib/uploads";
+import { advancePickup, bookPickup, PickupError } from "@/lib/recycling/pickup";
 
 function back(message: string, scenario?: string): never {
   const q = new URLSearchParams({ error: message });
@@ -62,6 +63,31 @@ export async function createQuote(formData: FormData) {
     redirect(`/owner/device/${deviceId}?error=${encodeURIComponent(msg)}`);
   }
   redirect(`/jobs/${jobId}`);
+}
+
+export async function bookRecycling(formData: FormData) {
+  const deviceId = String(formData.get("deviceId") ?? "");
+  let msg: string;
+  try {
+    await bookPickup({ deviceId, address: String(formData.get("address") ?? ""), pickupDate: String(formData.get("pickupDate") ?? "") });
+    msg = "ok=" + encodeURIComponent("Pickup booked with the demo recycling partner.");
+  } catch (e) {
+    msg = "error=" + encodeURIComponent(e instanceof PickupError ? e.message : "Could not book the pickup.");
+  }
+  redirect(`/owner/device/${deviceId}?${msg}`);
+}
+
+/** Demo/dev only: stands in for the recycler collecting and processing the device. */
+export async function advanceRecycling(formData: FormData) {
+  const deviceId = String(formData.get("deviceId") ?? "");
+  let msg: string;
+  try {
+    const s = await advancePickup(deviceId);
+    msg = "ok=" + encodeURIComponent(`Demo recycler marked it ${s}.`);
+  } catch (e) {
+    msg = "error=" + encodeURIComponent(e instanceof PickupError ? e.message : "Could not update the pickup.");
+  }
+  redirect(`/owner/device/${deviceId}?${msg}`);
 }
 
 export async function createGuide(formData: FormData) {

@@ -110,31 +110,43 @@ model VerifiedRepair {
 }
 
 model Donation {
-  id            String   @id @default(cuid())
-  donorName     String
-  amountCents   Int
-  paypalOrderId String?
+  id              String    @id @default(cuid())
+  publicId        String    @unique @default(uuid()) // unguessable: gates the confirmation page and certificate
+  donorName       String // as typed by the donor; public lists show first name only
+  message         String?
+  amountCents     Int
+  status          String    @default("created") // created | capturing | completed | pending
+  simulated       Boolean   @default(false)
+  paypalOrderId   String?
   paypalCaptureId String?
-  deviceId      String?
-  createdAt     DateTime @default(now())
+  deviceId        String?
+  capturedAt      DateTime?
+  createdAt       DateTime  @default(now())
 }
 
-model RecycleBooking {
-  id         String   @id @default(cuid())
-  deviceId   String
-  pickupDate String
-  recycler   String
-  kgDiverted Float
-  createdAt  DateTime @default(now())
+model RecyclingPickup {
+  id          String    @id @default(cuid())
+  deviceId    String    @unique
+  address     String
+  pickupDate  String // YYYY-MM-DD
+  recycler    String // always the labelled demo partner
+  status      String    @default("booked") // booked | collected | processed
+  kgDiverted  Float
+  demo        Boolean   @default(true)
+  collectedAt DateTime?
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
 }
 
-// Outcomes feeding the impact dashboard (one row per device journey that ended).
+// Outcomes feeding the impact dashboard. deviceId is unique so a device is counted once.
 model ImpactEvent {
   id          String   @id @default(cuid())
+  deviceId    String?  @unique
   deviceType  String
   outcome     String // repair | refurbish | donate | recycle
   ewasteKg    Float
   co2eKg      Float
+  demo        Boolean  @default(false) // seeded or simulated
   createdAt   DateTime @default(now())
 }
 

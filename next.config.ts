@@ -6,7 +6,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   cacheComponents: false,
   partialPrefetching: false,
-  serverExternalPackages: ["@prisma/client", "pdf-lib"],
+  serverExternalPackages: ["@prisma/client", "pdf-lib", "qrcode"],
   turbopack: {
     rules: {
       "*.css": {

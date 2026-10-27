@@ -40,6 +40,20 @@ async function findJob(event: WebhookEvent) {
   return orderId ? db.job.findFirst({ where: { paypalOrderId: orderId } }) : null;
 }
 
+async function findDonation(event: WebhookEvent) {
+  const r = event.resource;
+  const orderId = r?.supplementary_data?.related_ids?.order_id;
+  if (r?.id) {
+    const d = await db.donation.findFirst({ where: { paypalCaptureId: r.id } });
+    if (d) return d;
+  }
+  if (orderId) {
+    const d = await db.donation.findFirst({ where: { paypalOrderId: orderId } });
+    if (d) return d;
+  }
+  return r?.custom_id ? db.donation.findUnique({ where: { publicId: r.custom_id } }) : null;
+}
+
 /**
  * Idempotent: each PayPal event id is recorded once (unique constraint), and every state change is a
  * conditional transition, so replays are harmless. The in-app API routes normally act first;
@@ -47,12 +61,21 @@ async function findJob(event: WebhookEvent) {
  */
 export async function processWebhookEvent(event: WebhookEvent, simulated: boolean): Promise<WebhookResult> {
   const job = await findJob(event);
+  const donation = !job && event.event_type === "PAYMENT.CAPTURE.COMPLETED" ? await findDonation(event) : null;
 
   try {
     await db.webhookEvent.create({ data: { eventId: event.id, type: event.event_type, jobId: job?.id, simulated } });
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return "duplicate";
     throw e;
+  }
+  if (donation) {
+    // Completes a donation whose capture response we missed or that was PENDING. Already-completed donations are untouched.
+    const res = await db.donation.updateMany({
+      where: { id: donation.id, status: { in: ["created", "capturing", "pending"] } },
+      data: { status: "completed", paypalCaptureId: event.resource?.id ?? donation.paypalCaptureId, capturedAt: new Date() },
+    });
+    return res.count ? "processed" : "ignored";
   }
   if (!job || !isJobStatus(job.status)) return "ignored";
   const r = event.resource;

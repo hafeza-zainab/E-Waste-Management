@@ -26,7 +26,7 @@ const LIFECYCLE = ["quoted", "paid", "accepted", "in_progress", "completed", "cu
 async function main() {
   await db.$transaction([
     db.impactEvent.deleteMany(),
-    db.recycleBooking.deleteMany(),
+    db.recyclingPickup.deleteMany(),
     db.donation.deleteMany(),
     db.verifiedRepair.deleteMany(),
     db.jobEvent.deleteMany(),
@@ -95,15 +95,15 @@ async function main() {
     });
     const imp = computeImpact(h.type, "repair");
     await db.impactEvent.create({
-      data: { deviceType: h.type, outcome: "repair", ewasteKg: imp.ewasteKg, co2eKg: imp.co2eKg, createdAt: when },
+      data: { deviceId: devices[h.dev].id, deviceType: h.type, outcome: "repair", ewasteKg: imp.ewasteKg, co2eKg: imp.co2eKg, demo: true, createdAt: when },
     });
   }
 
   await db.donation.createMany({
     data: [
-      { donorName: "Sam Okafor", amountCents: 2500, paypalOrderId: "SEED-DON-1", paypalCaptureId: "SEED-DONCAP-1" },
-      { donorName: "Maria Lindqvist", amountCents: 1000, paypalOrderId: "SEED-DON-2", paypalCaptureId: "SEED-DONCAP-2" },
-      { donorName: "Anonymous", amountCents: 5000, paypalOrderId: "SEED-DON-3", paypalCaptureId: "SEED-DONCAP-3" },
+      { donorName: "Sam Okafor", amountCents: 2500, paypalOrderId: "SEED-DON-1", paypalCaptureId: "SEED-DONCAP-1", status: "completed", simulated: true, capturedAt: new Date(Date.now() - 6 * 86400000), createdAt: new Date(Date.now() - 6 * 86400000) },
+      { donorName: "Maria Lindqvist", amountCents: 1000, paypalOrderId: "SEED-DON-2", paypalCaptureId: "SEED-DONCAP-2", status: "completed", simulated: true, capturedAt: new Date(Date.now() - 3 * 86400000), createdAt: new Date(Date.now() - 3 * 86400000) },
+      { donorName: "Anonymous", amountCents: 5000, paypalOrderId: "SEED-DON-3", paypalCaptureId: "SEED-DONCAP-3", status: "completed", simulated: true, capturedAt: new Date(Date.now() - 1 * 86400000), createdAt: new Date(Date.now() - 1 * 86400000) },
     ],
   });
 

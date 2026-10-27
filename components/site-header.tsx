@@ -6,6 +6,7 @@ import { switchRole } from "@/lib/actions";
 const links = [
   { href: "/owner", label: "My repairs" },
   { href: "/technician", label: "Technician" },
+  { href: "/donate", label: "Donate" },
   { href: "/impact", label: "Impact" },
 ];
 

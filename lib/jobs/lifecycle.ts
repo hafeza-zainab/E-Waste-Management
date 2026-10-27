@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { PayPalError, isSimulatedId } from "@/lib/paypal/client";
 import * as pp from "@/lib/paypal/gateway";
 import { ActionError, checkPermission, type Action, type Principal } from "./permissions";
+import { computeImpact } from "@/lib/impact/formulas";
 import { transitionJob } from "./service";
 import { isJobStatus, type JobStatus } from "./state-machine";
 
@@ -212,9 +213,21 @@ export function repairTypeOf(diagnosisJson: string): string {
   }
 }
 
+/** One impact row per device (deviceId is unique). Simulated authorizations/payouts are flagged demo. */
+async function recordRepairImpact(job: { deviceId?: string; authSimulated?: boolean; payoutMode?: string | null; device: { type: string } }) {
+  if (!job.deviceId) return;
+  const impact = computeImpact(job.device.type, "repair");
+  await db.impactEvent.upsert({
+    where: { deviceId: job.deviceId },
+    update: {},
+    create: { deviceId: job.deviceId, deviceType: job.device.type, outcome: "repair", ewasteKg: impact.ewasteKg, co2eKg: impact.co2eKg, demo: !!job.authSimulated || job.payoutMode !== "paypal_sandbox" },
+  });
+}
+
 /** Idempotent: one VerifiedRepair per job (jobId is unique). Rating 0 = rating prompt still open. */
-export async function ensureVerifiedRepair(job: { id: string; technicianId: string | null; diagnosisJson: string; customerRating: number | null; payoutBatchId: string | null; device: { type: string } }) {
+export async function ensureVerifiedRepair(job: { id: string; deviceId?: string; authSimulated?: boolean; payoutMode?: string | null; technicianId: string | null; diagnosisJson: string; customerRating: number | null; payoutBatchId: string | null; device: { type: string } }) {
   if (!job.technicianId) return;
+  await recordRepairImpact(job);
   await db.verifiedRepair.upsert({
     where: { jobId: job.id },
     update: {},

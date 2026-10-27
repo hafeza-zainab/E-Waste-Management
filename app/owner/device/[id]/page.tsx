@@ -6,6 +6,7 @@ import { createGuide, createQuote } from "../../actions";
 import { Badge, Card } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
+import { RecyclePanel } from "@/components/recycle-panel";
 
 const PATH_INFO: Record<RepairPath, { label: string; text: string }> = {
   diy: { label: "Fix it yourself", text: "Safe enough for a careful DIY repair, with a stop-and-book escape at every step." },
@@ -26,6 +27,8 @@ export default async function DevicePage(props: PageProps<"/owner/device/[id]">)
   if (!device?.diagnosisJson) notFound();
   const d = DiagnosisSchema.parse(JSON.parse(device.diagnosisJson));
   const openJob = await db.job.findFirst({ where: { deviceId: id, status: { notIn: ["payout_released", "cancelled", "authorization_expired"] } } });
+  const pickup = await db.recyclingPickup.findUnique({ where: { deviceId: id } });
+  const ok = typeof sp.ok === "string" ? sp.ok : undefined;
   const path = PATH_INFO[d.recommended_path];
   const partsTotal = d.estimated_parts.reduce((s, p) => s + p.price_usd, 0);
   const blocked = d.safety_risk.level === "high";
@@ -44,6 +47,8 @@ export default async function DevicePage(props: PageProps<"/owner/device/[id]">)
       {error && (
         <p role="alert" className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">{error}</p>
       )}
+
+      {ok && <p role="status" className="rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-900">{ok}</p>}
 
       {blocked && (
         <section role="alert" className="rounded-2xl border-2 border-danger bg-red-50 p-5">
@@ -122,6 +127,9 @@ export default async function DevicePage(props: PageProps<"/owner/device/[id]">)
               <SubmitButton pendingText="Building quote…">Get a quote and book</SubmitButton>
             </form>
           ))}
+        {(d.recommended_path === "donate" || d.recommended_path === "refurbish") && (
+          <Link href={`/donate?deviceId=${device.id}`} className={buttonVariants()}>Donate to the Refurbish &amp; Donate Fund</Link>
+        )}
         {d.diy_allowed ? (
           <form action={createGuide}>
             <input type="hidden" name="deviceId" value={device.id} />
@@ -135,6 +143,8 @@ export default async function DevicePage(props: PageProps<"/owner/device/[id]">)
           <p className="text-sm font-medium">DIY is not offered for this device.</p>
         )}
       </Card>
+
+      {d.recommended_path === "recycle" && <RecyclePanel deviceId={device.id} deviceType={device.type} pickup={pickup} canAdvance={process.env.NODE_ENV !== "production"} />}
 
       <Card>
         <h2 className="text-lg font-bold">Environmental impact if kept out of the waste stream</h2>

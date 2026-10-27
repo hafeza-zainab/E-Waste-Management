@@ -78,6 +78,7 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
             <details className="text-sm">
               <summary className="min-h-11 cursor-pointer py-2 font-medium">Why {quote.technicianName}?</summary>
               <ul className="list-disc pl-5 text-muted">{quote.matchReasons.map((r) => <li key={r}>{r}</li>)}</ul>
+              <Link href={`/tech/${quote.technicianId}`} className="mt-2 inline-flex min-h-11 items-center text-primary underline">See {quote.technicianName}&apos;s verified profile</Link>
             </details>
           </Card>
         )}
