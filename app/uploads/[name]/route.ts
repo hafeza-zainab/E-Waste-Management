@@ -16,7 +16,7 @@ export async function GET(_req: Request, ctx: RouteContext<"/uploads/[name]">) {
   const m = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$/.exec(name);
   if (!m) return new Response("Not found", { status: 404 });
   try {
-    const buf = await readFile(path.join(uploadDir(), name));
+    const buf = await readFile(path.join(/*turbopackIgnore: true*/ uploadDir(), name));
     return new Response(new Uint8Array(buf), {
       headers: { "Content-Type": TYPES[m[1]], "Cache-Control": "public, max-age=3600", "X-Content-Type-Options": "nosniff", "Content-Disposition": "inline" },
     });

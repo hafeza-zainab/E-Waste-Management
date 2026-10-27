@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 /** Where uploads are stored. Served by app/uploads/[name]/route.ts (Next only serves public/ files that existed at build time). */
-export const uploadDir = () => process.env.UPLOAD_DIR || path.join(process.cwd(), "public", "uploads");
+export const uploadDir = () => process.env.UPLOAD_DIR || path.join(/*turbopackIgnore: true*/ process.cwd(), "public", "uploads");
 
 export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 type ImageType = "image/jpeg" | "image/png" | "image/webp";
@@ -32,6 +32,6 @@ export async function saveImageUpload(file: FormDataEntryValue | null): Promise<
   const dir = uploadDir();
   await mkdir(dir, { recursive: true });
   const name = `${randomUUID()}.${kind.ext}`;
-  await writeFile(path.join(dir, name), buf);
+  await writeFile(path.join(/*turbopackIgnore: true*/ dir, name), buf);
   return { publicPath: `/uploads/${name}`, mediaType: kind.mediaType, base64: buf.toString("base64") };
 }
