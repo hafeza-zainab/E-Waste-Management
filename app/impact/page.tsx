@@ -5,7 +5,7 @@ import { formatUsd } from "@/lib/jobs/money";
 import { CONSTANT_DOCS } from "@/lib/impact/constants";
 import { computeTotals, donationsByDay } from "@/lib/impact/totals";
 
-export const metadata = { title: "Impact | ReLoop" };
+export const metadata = { title: "Impact" };
 
 export default async function ImpactPage() {
   const [events, repairs, jobs, donations, pickups] = await Promise.all([

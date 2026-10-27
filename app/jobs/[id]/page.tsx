@@ -19,10 +19,10 @@ import { cancelAction, confirmAction, rateAction, reportAction, retryPayoutActio
 
 const Simulated = () => <Badge tone="warn">SIMULATED</Badge>;
 
+export const metadata = { title: "Repair job" };
+
 export default async function JobPage(props: PageProps<"/jobs/[id]">) {
   const { id } = await props.params;
-  const sp = await props.searchParams;
-  const flash = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
   const job = await db.job.findUnique({
     where: { id },
     include: { device: true, technician: true, events: { orderBy: { createdAt: "asc" } } },
@@ -51,8 +51,6 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
           </p>
         </div>
 
-        {flash("ok") && <p role="status" className="rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-900">{flash("ok")}</p>}
-        {flash("error") && <p role="alert" className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">{flash("error")}</p>}
 
         {quote && (
           <Card className="space-y-3">

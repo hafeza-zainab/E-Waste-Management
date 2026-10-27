@@ -1,29 +1,37 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
+import { Suspense } from "react";
 import { Toaster } from "sonner";
 import "./globals.css";
 import { DemoBanner } from "@/components/demo-banner";
 import { SiteHeader } from "@/components/site-header";
+import { DemoGuide } from "@/components/demo-guide";
+import { FlashToast } from "@/components/flash-toast";
+import { isDemoMode } from "@/lib/ai/config";
+import { paypalMode } from "@/lib/paypal/client";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "ReLoop: repair first, waste last",
+  title: { default: "ReLoop: repair first, waste last", template: "%s | ReLoop" },
   description:
     "An AI repair agent that diagnoses a broken device, books and pays a technician through PayPal, and releases payout only after the repair is verified.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
+  const showGuide = isDemoMode() || paypalMode() === "simulated" || process.env.DEMO_ACTIONS === "true";
   return (
     <html lang="en" className={`${geistSans.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
         <a href="#main" className="sr-only focus:not-sr-only focus:p-3">Skip to content</a>
         <Toaster richColors position="top-center" />
+        <Suspense fallback={null}><FlashToast /></Suspense>
         <DemoBanner />
         <SiteHeader />
         <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
-        <footer className="border-t border-border py-6 text-center text-sm text-muted">
-          ReLoop · MIT licensed · built for the PayPal AI Hackathon
+        {showGuide && <DemoGuide buyerEmail={process.env.NEXT_PUBLIC_DEMO_BUYER_EMAIL} buyerNote={process.env.NEXT_PUBLIC_DEMO_BUYER_NOTE} />}
+        <footer className="border-t border-border px-4 py-6 text-center text-sm text-muted">
+          ReLoop · sandbox demo, no real money moves · MIT licensed · built for the PayPal AI Hackathon
         </footer>
       </body>
     </html>

@@ -1,8 +1,12 @@
-import { isDemoMode } from "@/lib/ai/config";
+import { aiCapReached, isDemoMode } from "@/lib/ai/config";
 import { paypalMode } from "@/lib/paypal/client";
 
 export function DemoBanner() {
-  const ai = isDemoMode() ? "AI answers come from scripted fixtures" : "AI answers come from live Claude calls";
+  const ai = aiCapReached()
+    ? "today's live-AI limit is used up, so AI answers come from scripted fixtures"
+    : isDemoMode()
+      ? "AI answers come from scripted fixtures"
+      : "AI answers come from live Claude calls";
   const pp =
     paypalMode() === "sandbox"
       ? "payments use the PayPal sandbox, no real money moves"

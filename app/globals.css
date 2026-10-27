@@ -4,7 +4,7 @@
   --background: #f6faf9;
   --foreground: #0f2a27;
   --card: #ffffff;
-  --muted: #5b7370;
+  --muted: #4a6562; /* AA (>= 4.5:1) on background, card and primary-soft */
   --border: #d3e3e0;
   --primary: #0f766e;
   --primary-hover: #0b5f58;

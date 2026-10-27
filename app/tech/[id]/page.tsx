@@ -7,7 +7,7 @@ import { Badge, Card } from "@/components/ui/card";
 
 export async function generateMetadata(props: PageProps<"/tech/[id]">): Promise<Metadata> {
   const t = await db.technician.findUnique({ where: { id: (await props.params).id }, select: { name: true } });
-  return { title: t ? `${t.name} - verified repair profile | ReLoop` : "Technician not found" };
+  return { title: t ? `${t.name} - verified repair profile` : "Technician not found" };
 }
 
 /** Public profile: no login, no emails, no payer ids, shortened payout references only. */

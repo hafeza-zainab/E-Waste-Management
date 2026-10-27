@@ -20,6 +20,8 @@ const PATH_INFO: Record<RepairPath, { label: string; text: string }> = {
 const riskTone = { low: "good", medium: "warn", high: "bad" } as const;
 const usd = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 
+export const metadata = { title: "Diagnosis" };
+
 export default async function DevicePage(props: PageProps<"/owner/device/[id]">) {
   const { id } = await props.params;
   const sp = await props.searchParams;
@@ -29,7 +31,6 @@ export default async function DevicePage(props: PageProps<"/owner/device/[id]">)
   const d = DiagnosisSchema.parse(JSON.parse(device.diagnosisJson));
   const openJob = await db.job.findFirst({ where: { deviceId: id, status: { notIn: ["payout_released", "cancelled", "authorization_expired"] } } });
   const pickup = await db.recyclingPickup.findUnique({ where: { deviceId: id } });
-  const ok = typeof sp.ok === "string" ? sp.ok : undefined;
   const path = PATH_INFO[d.recommended_path];
   const partsTotal = d.estimated_parts.reduce((s, p) => s + p.price_usd, 0);
   const blocked = d.safety_risk.level === "high";
@@ -48,8 +49,6 @@ export default async function DevicePage(props: PageProps<"/owner/device/[id]">)
       {error && (
         <p role="alert" className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">{error}</p>
       )}
-
-      {ok && <p role="status" className="rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-900">{ok}</p>}
 
       {blocked && (
         <section role="alert" className="rounded-2xl border-2 border-danger bg-red-50 p-5">

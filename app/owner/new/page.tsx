@@ -6,6 +6,8 @@ import { DEVICE_TYPES } from "@/lib/ai/schemas";
 
 const field = "min-h-11 w-full rounded-lg border border-border bg-white px-3 text-base";
 
+export const metadata = { title: "Diagnose a device" };
+
 export default async function NewDevicePage(props: PageProps<"/owner/new">) {
   const sp = await props.searchParams;
   const scenarioParam = typeof sp.scenario === "string" ? sp.scenario : undefined;

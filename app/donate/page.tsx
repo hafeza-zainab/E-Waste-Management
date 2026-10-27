@@ -6,11 +6,10 @@ import { formatUsd } from "@/lib/jobs/money";
 import { Badge, Card } from "@/components/ui/card";
 import { DonateForm } from "@/components/donate-form";
 
-export const metadata = { title: "Refurbish & Donate Fund | ReLoop" };
+export const metadata = { title: "Refurbish & Donate Fund" };
 
 export default async function DonatePage(props: PageProps<"/donate">) {
   const sp = await props.searchParams;
-  const error = typeof sp.error === "string" ? sp.error.slice(0, 300) : undefined;
   const deviceId = typeof sp.deviceId === "string" ? sp.deviceId.slice(0, 40) : undefined;
   const [sum, recent] = await Promise.all([
     db.donation.aggregate({ where: { status: "completed" }, _sum: { amountCents: true }, _count: true }),
@@ -40,8 +39,6 @@ export default async function DonatePage(props: PageProps<"/donate">) {
         </div>
         <p className="text-sm text-muted">{pct}% of the demo goal.</p>
       </Card>
-
-      {error && <p role="alert" className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">{error}</p>}
 
       <Card className="space-y-4">
         <h2 className="text-xl font-bold">Donate</h2>

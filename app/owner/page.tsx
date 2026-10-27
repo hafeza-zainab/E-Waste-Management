@@ -5,6 +5,8 @@ import { getDemoOwner } from "@/lib/session";
 import { Badge, Card } from "@/components/ui/card";
 import { formatUsd } from "@/lib/jobs/money";
 
+export const metadata = { title: "My repairs" };
+
 export default async function OwnerPage() {
   const owner = await getDemoOwner();
   const devices = await db.device.findMany({

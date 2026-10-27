@@ -22,9 +22,9 @@ function Money({ j, pct }: { j: { totalCents: number; platformFeeCents: number; 
   );
 }
 
-export default async function TechnicianPage(props: PageProps<"/technician">) {
-  const sp = await props.searchParams;
-  const flash = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
+export const metadata = { title: "Technician dashboard" };
+
+export default async function TechnicianPage() {
   const tech = await getCurrentTechnician();
   const jobs = await db.job.findMany({
     where: { technicianId: tech.id, status: { not: "quoted" } },
@@ -48,8 +48,6 @@ export default async function TechnicianPage(props: PageProps<"/technician">) {
           {tech.city} · rating {tech.rating.toFixed(1)} · skills: {tech.skills.replaceAll(",", ", ")}
         </p>
       </div>
-      {flash("ok") && <p role="status" className="rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-900">{flash("ok")}</p>}
-      {flash("error") && <p role="alert" className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">{flash("error")}</p>}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>

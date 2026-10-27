@@ -5,7 +5,7 @@ import { paypalMode } from "@/lib/paypal/client";
 import { simulationAllowed } from "@/lib/jobs/lifecycle";
 import { AgentConsole } from "@/components/agent-console";
 
-export const metadata = { title: "Repair agent | ReLoop" };
+export const metadata = { title: "Repair agent" };
 
 export default async function AgentPage(props: PageProps<"/agent">) {
   const sp = await props.searchParams;
