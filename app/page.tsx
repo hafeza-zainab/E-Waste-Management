@@ -29,7 +29,7 @@ export default function Home() {
           PayPal.
         </p>
         <div className="flex flex-wrap gap-3">
-          <Link href="/owner" className={buttonVariants()}>Start a repair</Link>
+          <Link href="/owner/new" className={buttonVariants()}>Start a repair</Link>
           <Link href="/impact" className={buttonVariants({ variant: "outline" })}>See the impact</Link>
         </div>
       </section>
@@ -58,7 +58,7 @@ export default function Home() {
             <Card key={s.key} className="flex flex-col">
               <h3 className="font-semibold">{s.title}</h3>
               <p className="mt-1 flex-1 text-sm text-muted">{s.text}</p>
-              <Link href={`/owner?scenario=${s.key}`} className={buttonVariants({ className: "mt-4" })}>
+              <Link href={`/owner/new?scenario=${s.key}`} className={buttonVariants({ className: "mt-4" })}>
                 Try demo scenario
               </Link>
             </Card>

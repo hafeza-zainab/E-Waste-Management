@@ -42,6 +42,9 @@ model Device {
   problem   String
   photoPath String?
   scenario  String? // demo scenario key if created from a scripted case
+  diagnosisJson String? // validated + safety-gated Diagnosis
+  diagnosisSource String? // fixture | claude
+  guideJson String? // generated DIY guide
   createdAt DateTime @default(now())
   jobs      Job[]
 }
