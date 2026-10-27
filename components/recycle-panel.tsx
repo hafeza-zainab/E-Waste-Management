@@ -45,8 +45,8 @@ export function RecyclePanel({ deviceId, deviceType, pickup, canAdvance }: Props
           {canAdvance && next && (
             <form action={advanceRecycling} className="rounded-lg border border-dashed border-amber-500 bg-amber-50 p-3 text-sm">
               <input type="hidden" name="deviceId" value={deviceId} />
-              <p className="mb-2 font-semibold">DEMO ONLY: stand in for the recycler</p>
-              <Button variant="outline" type="submit">Mark {next}</Button>
+              <p className="mb-2 font-semibold">Demo control: stands in for the recycler (no real recycler exists)</p>
+              <Button variant="outline" type="submit">Demo control: mark {next}</Button>
             </form>
           )}
           {pickup.status === "processed" && <p role="status" className="text-sm font-medium">Processed. This device now counts toward the impact dashboard (demo data).</p>}

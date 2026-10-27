@@ -6,6 +6,7 @@ import { DiagnosisSchema, IntakeSchema } from "@/lib/ai/schemas";
 import { createQuotedJob } from "@/lib/jobs/service";
 import { getDemoOwner } from "@/lib/session";
 import { saveImageUpload } from "@/lib/uploads";
+import { SCENARIO_INTAKE, type ScenarioKey } from "@/lib/ai/fixtures";
 import { advancePickup, bookPickup, PickupError } from "@/lib/recycling/pickup";
 
 function back(message: string, scenario?: string): never {
@@ -24,7 +25,13 @@ export async function createDevice(formData: FormData) {
     scenario: formData.get("scenario") || undefined,
   });
   if (!parsed.success) back(parsed.error.issues[0]?.message ?? "Please check the form.", String(formData.get("scenario") ?? ""));
-  const intake = parsed.data;
+  let intake = parsed.data;
+  // A demo scenario owns the device identity: whatever the form (or browser autofill) sent, the device,
+  // diagnosis and job pages all show the scenario's own type, brand, model and age.
+  if (intake.scenario && intake.scenario in SCENARIO_INTAKE) {
+    const fixed = SCENARIO_INTAKE[intake.scenario as ScenarioKey];
+    intake = { ...intake, type: fixed.type, brand: fixed.brand, model: fixed.model, ageYears: fixed.ageYears };
+  }
 
   let deviceId: string;
   try {

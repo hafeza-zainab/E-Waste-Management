@@ -89,7 +89,13 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
             <p className="text-sm text-muted">
               Your payment is <strong>authorized, not captured</strong>: the money is held by PayPal and only taken when you confirm the repair is done.
             </p>
-            <PayPalCheckout jobId={job.id} clientId={clientId} />
+            {job.agentRunId ? (
+              <p className="rounded-lg bg-primary-soft p-3 text-sm">
+                The agent built this quote, so it can only be paid after you approve it in the agent. <Link className="font-semibold underline" href={`/agent?run=${job.agentRunId}`}>Review and approve in the agent</Link> (approvals expire after 15 minutes; ask the agent again if it has).
+              </p>
+            ) : (
+              <PayPalCheckout jobId={job.id} clientId={clientId} />
+            )}
             {canSimulateWebhook && <SimulateWebhook jobId={job.id} />}
             {simulationAllowed() && (
               <form action={simulateApprovalAction} className="rounded-lg border border-dashed border-amber-500 bg-amber-50 p-3 text-sm">

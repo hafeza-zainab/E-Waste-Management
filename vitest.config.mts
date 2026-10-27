@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     include: ["tests/**/*.test.ts"],
     globalSetup: ["tests/setup/global.ts"],
-    env: { DATABASE_URL: "file:./test.db", PAYPAL_CLIENT_ID: "", PAYPAL_CLIENT_SECRET: "", PAYPAL_SIMULATE_APPROVAL: "" },
+    env: { DATABASE_URL: "file:./test.db", PAYPAL_CLIENT_ID: "", PAYPAL_CLIENT_SECRET: "", PAYPAL_SIMULATE_APPROVAL: "", DEMO_ACTIONS: "true", DEMO_MODE: "true", ANTHROPIC_API_KEY: "" },
     fileParallelism: false,
   },
 });

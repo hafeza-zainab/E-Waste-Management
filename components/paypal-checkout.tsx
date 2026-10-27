@@ -24,12 +24,19 @@ interface Props {
   jobId: string;
   /** Public sandbox client id (the server's own PAYPAL_CLIENT_ID); null means PayPal is simulated locally. */
   clientId: string | null;
+  /**
+   * Agent-built jobs: returns a fresh single-use approval token (minted by the user's Approve click endpoint)
+   * for each PayPal order creation. Plain jobs omit this.
+   */
+  getApprovalToken?: () => Promise<string>;
 }
 
-export function PayPalCheckout({ jobId, clientId }: Props) {
+export function PayPalCheckout({ jobId, clientId, getApprovalToken }: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [popupFailed, setPopupFailed] = useState(false);
+
+  const orderBody = async () => ({ jobId, ...(getApprovalToken ? { approvalToken: await getApprovalToken() } : {}) });
 
   const authorize = async (orderId: string) => {
     await post(`/api/paypal/orders/${encodeURIComponent(orderId)}/authorize`, { jobId });
@@ -41,7 +48,7 @@ export function PayPalCheckout({ jobId, clientId }: Props) {
   const continueInTab = async () => {
     setBusy(true);
     try {
-      const order = await post<{ id: string; approveUrl: string | null }>("/api/paypal/orders", { jobId });
+      const order = await post<{ id: string; approveUrl: string | null }>("/api/paypal/orders", await orderBody());
       if (!order.approveUrl) throw new Error("PayPal did not return an approval link.");
       window.location.assign(order.approveUrl);
     } catch (e) {
@@ -61,7 +68,7 @@ export function PayPalCheckout({ jobId, clientId }: Props) {
           onClick={async () => {
             setBusy(true);
             try {
-              const order = await post<{ id: string }>("/api/paypal/orders", { jobId });
+              const order = await post<{ id: string }>("/api/paypal/orders", await orderBody());
               await authorize(order.id);
             } catch (e) {
               toast.error(e instanceof Error ? e.message : "Payment failed.");
@@ -81,7 +88,7 @@ export function PayPalCheckout({ jobId, clientId }: Props) {
       <PayPalScriptProvider options={{ clientId, currency: "USD", intent: "authorize" }}>
         <PayPalButtons
           style={{ layout: "vertical", shape: "rect", label: "pay" }}
-          createOrder={async () => (await post<{ id: string }>("/api/paypal/orders", { jobId })).id}
+          createOrder={async () => (await post<{ id: string }>("/api/paypal/orders", await orderBody())).id}
           onApprove={async (data) => {
             try {
               await authorize(data.orderID);

@@ -27,9 +27,10 @@ export async function createQuotedJob(deviceId: string, pickup: boolean) {
   return persistQuote(deviceId, diagnosis, quote);
 }
 
-export async function persistQuote(deviceId: string, diagnosis: unknown, quote: Quote) {
+export async function persistQuote(deviceId: string, diagnosis: unknown, quote: Quote, extra: { agentRunId?: string } = {}) {
   return db.job.create({
     data: {
+      ...extra,
       deviceId,
       technicianId: quote.technicianId,
       status: "quoted",

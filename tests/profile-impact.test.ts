@@ -114,7 +114,7 @@ describe("recycling pickup", () => {
     expect(nextPickupStatus("processed")).toBeNull();
     expect(validatePickupDate(future(1))).toBeNull();
     await bookPickup({ deviceId: "d2", address: "12 Example Street", pickupDate: future(2) });
-    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DEMO_ACTIONS", "false");
     await expect(advancePickup("d2")).rejects.toThrow(/Not available/);
     vi.unstubAllEnvs();
   });

@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { ApprovalError } from "@/lib/agent/approval";
+import { createOrderWithApproval } from "@/lib/agent/order";
 import { parseQuote } from "@/lib/jobs/service";
 import { PayPalError } from "@/lib/paypal/client";
 import { createOrder } from "@/lib/paypal/orders";
 
-const Body = z.object({ jobId: z.string().min(1) });
+const Body = z.object({ jobId: z.string().min(1), approvalToken: z.string().max(200).optional() });
 
 /** Creates a PayPal order for a quoted job. The amount is read from the DB, never from the request. */
 export async function POST(req: Request) {
@@ -19,10 +21,17 @@ export async function POST(req: Request) {
   if (!quote) return NextResponse.json({ error: "Job has no quote." }, { status: 409 });
 
   try {
-    const order = await createOrder(job.id, `ReLoop repair: ${job.device.brand} ${job.device.model}`, quote);
-    await db.job.update({ where: { id: job.id }, data: { paypalOrderId: order.id } });
+    // Jobs built by the agent can only be paid with the user's single-use approval token.
+    const order = job.agentRunId
+      ? await createOrderWithApproval(job.id, parsed.data.approvalToken)
+      : await (async () => {
+          const o = await createOrder(job.id, `ReLoop repair: ${job.device.brand} ${job.device.model}`, quote);
+          await db.job.update({ where: { id: job.id }, data: { paypalOrderId: o.id } });
+          return o;
+        })();
     return NextResponse.json({ id: order.id, simulated: order.simulated, approveUrl: order.approveUrl });
   } catch (e) {
+    if (e instanceof ApprovalError) return NextResponse.json({ error: e.message, code: e.code }, { status: e.code === "forbidden" ? 403 : 409 });
     const status = e instanceof PayPalError ? 502 : 500;
     return NextResponse.json({ error: e instanceof PayPalError ? `PayPal error: ${e.message}` : "Could not create the order.", debugId: e instanceof PayPalError ? e.debugId : undefined }, { status });
   }

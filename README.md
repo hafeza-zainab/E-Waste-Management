@@ -17,6 +17,31 @@ npm test
 
 `DEMO_MODE=true` (the default) needs no API keys. PayPal is always sandbox.
 
+## The repair agent (`/agent`)
+
+Type a goal ("My Galaxy A52 screen is cracked, fix it under $60 this weekend"), optionally a budget and a photo, and watch the agent work step by step. It ends at a quote that only **you** can approve; then PayPal needs your approval again.
+
+```mermaid
+flowchart LR
+  U([User goal, budget, photo]) --> A[Agent loop<br/>Claude tool use, max 10 calls, 90 s]
+  A --> D[diagnose_device] --> S[check_safety<br/>code-level gate]
+  A --> P[search_parts<br/>Part table]
+  A --> T[find_technician<br/>skill filter]
+  A --> Q[build_quote<br/>budget cap in code]
+  Q --> R[request_user_approval<br/>ends the run]
+  R -->|pending approval: job, total, items hash, 15 min| UI{{Quote card}}
+  UI -->|user clicks Approve<br/>/api/agent/approve| TOK[single-use token]
+  TOK --> O[create_paypal_order<br/>AUTHORIZE, never offered to the model]
+  O --> PP[PayPal buyer approval in popup or tab]
+  PP --> AUTH[authorized, held] --> CAP[capture only when owner confirms repair]
+  A -. cannot call .-> O
+```
+
+- **Modes:** with `DEMO_MODE=true` or no `ANTHROPIC_API_KEY` the agent plays a clearly labelled *scripted demo run* of the three scenarios through the same real tools and checks. With a key and `DEMO_MODE=false` it is a live Claude agent (`ANTHROPIC_MODEL`).
+- **Guarantees enforced in code, not in the prompt:** DIY is never offered when the safety gate says no; the budget cannot be exceeded; tool arguments are zod-validated; goal text, photos and tool results are treated as untrusted data; the model has no way to approve, authorize, capture or pay. See `DECISIONS.md` 48 to 55.
+- **PayPal Agent Toolkit:** evaluated, not used (reasons in `DECISIONS.md` 54). Orders are created by our own REST wrapper.
+- **Demo controls:** `DEMO_ACTIONS=true` shows the "Demo control" buttons that stand in for the recycler. No real recycler exists.
+
 ## Payments: how money moves (PayPal sandbox)
 
 1. **Authorize** at checkout (Orders v2, `intent=AUTHORIZE`): funds are held, not taken.

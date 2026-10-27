@@ -7,6 +7,7 @@ import { Badge, Card } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
 import { RecyclePanel } from "@/components/recycle-panel";
+import { demoActionsEnabled } from "@/lib/recycling/pickup";
 
 const PATH_INFO: Record<RepairPath, { label: string; text: string }> = {
   diy: { label: "Fix it yourself", text: "Safe enough for a careful DIY repair, with a stop-and-book escape at every step." },
@@ -144,7 +145,7 @@ export default async function DevicePage(props: PageProps<"/owner/device/[id]">)
         )}
       </Card>
 
-      {d.recommended_path === "recycle" && <RecyclePanel deviceId={device.id} deviceType={device.type} pickup={pickup} canAdvance={process.env.NODE_ENV !== "production"} />}
+      {d.recommended_path === "recycle" && <RecyclePanel deviceId={device.id} deviceType={device.type} pickup={pickup} canAdvance={demoActionsEnabled()} />}
 
       <Card>
         <h2 className="text-lg font-bold">Environmental impact if kept out of the waste stream</h2>

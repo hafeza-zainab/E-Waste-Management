@@ -29,7 +29,8 @@ export default function Home() {
           PayPal.
         </p>
         <div className="flex flex-wrap gap-3">
-          <Link href="/owner/new" className={buttonVariants()}>Start a repair</Link>
+          <Link href="/agent" className={buttonVariants()}>Ask the repair agent</Link>
+          <Link href="/owner/new" className={buttonVariants({ variant: "outline" })}>Start a repair manually</Link>
           <Link href="/impact" className={buttonVariants({ variant: "outline" })}>See the impact</Link>
         </div>
       </section>

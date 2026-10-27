@@ -4,6 +4,12 @@ import { DiagnosisSchema } from "@/lib/ai/schemas";
 import { DEMO_RECYCLER } from "@/lib/impact/constants";
 import { computeImpact } from "@/lib/impact/formulas";
 
+/**
+ * Demo-only controls (no real recycler exists). Explicit opt-in via DEMO_ACTIONS=true so the hosted demo
+ * can advance a pickup, instead of tying it to NODE_ENV.
+ */
+export const demoActionsEnabled = () => process.env.DEMO_ACTIONS === "true";
+
 export const PICKUP_STATUSES = ["booked", "collected", "processed"] as const;
 export type PickupStatus = (typeof PICKUP_STATUSES)[number];
 
@@ -52,7 +58,7 @@ export async function bookPickup(raw: unknown) {
 
 /** Demo-only advance (booked -> collected -> processed). Processing records the impact once per device. */
 export async function advancePickup(deviceId: string) {
-  if (process.env.NODE_ENV === "production") throw new PickupError("Not available.");
+  if (!demoActionsEnabled()) throw new PickupError("Not available.");
   const pickup = await db.recyclingPickup.findUnique({ where: { deviceId } });
   if (!pickup) throw new PickupError("No pickup booked.");
   const next = nextPickupStatus(pickup.status);

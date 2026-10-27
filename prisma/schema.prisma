@@ -81,6 +81,7 @@ model Job {
   proofPhotoPath     String?
   proofNotes         String?
   customerRating     Int?
+  agentRunId         String? // set when the quote was built by the agent: checkout then needs a user approval token
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
   events             JobEvent[]
@@ -158,4 +159,50 @@ model WebhookEvent {
   jobId      String?
   simulated  Boolean  @default(false)
   receivedAt DateTime @default(now())
+}
+
+// Seeded parts catalogue searched by the agent's search_parts tool.
+model Part {
+  id         String  @id
+  name       String
+  deviceType String // phone | laptop | tablet | tv | appliance | other
+  models     String // comma separated lowercase model fragments; "*" = any model of that type
+  quality    String // oem | compatible | generic
+  priceCents Int
+  stock      Int
+}
+
+model AgentRun {
+  id          String   @id @default(cuid())
+  goal        String
+  budgetCents Int?
+  mode        String // scripted | live
+  status      String   @default("running") // running | awaiting_approval | finished | stopped | failed
+  eventsJson  String   @default("[]")
+  deviceId    String?
+  jobId       String?
+  createdAt   DateTime @default(now())
+}
+
+// What the user is asked to approve. Binds the exact job, total and line items; expires after 15 minutes.
+model AgentApproval {
+  id             String          @id @default(cuid())
+  runId          String
+  jobId          String
+  totalCents     Int
+  itemsHash      String
+  expiresAt      DateTime
+  userApprovedAt DateTime? // set ONLY by the UI endpoint after the user clicks Approve
+  createdAt      DateTime        @default(now())
+  tokens         ApprovalToken[]
+}
+
+// Single-use. Only the SHA-256 of the token is stored.
+model ApprovalToken {
+  id         String        @id @default(cuid())
+  approvalId String
+  approval   AgentApproval @relation(fields: [approvalId], references: [id], onDelete: Cascade)
+  tokenHash  String        @unique
+  usedAt     DateTime?
+  createdAt  DateTime      @default(now())
 }

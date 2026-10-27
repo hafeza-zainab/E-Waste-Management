@@ -23,7 +23,7 @@ export default async function NewDevicePage(props: PageProps<"/owner/new">) {
       </div>
       {pre && (
         <p className="rounded-lg bg-primary-soft px-4 py-3 text-sm">
-          Demo scenario loaded. Review the details and press <strong>Diagnose</strong>.
+          Demo scenario loaded. The device details are fixed to the scenario so every page shows the same device. Edit the problem if you like and press <strong>Diagnose</strong>, or <a className="underline" href="/owner/new">enter your own device</a>.
         </p>
       )}
       {error && (
@@ -34,9 +34,10 @@ export default async function NewDevicePage(props: PageProps<"/owner/new">) {
       <Card>
         <form action={createDevice} className="space-y-5">
           {scenario && <input type="hidden" name="scenario" value={scenario} />}
+          {pre && <input type="hidden" name="type" value={pre.type} />}
           <div className="space-y-1">
             <label htmlFor="type" className="font-medium">Device type</label>
-            <select id="type" name="type" defaultValue={pre?.type ?? "phone"} className={field} required>
+            <select id="type" name="type" defaultValue={pre?.type ?? "phone"} className={field} required autoComplete="off" disabled={!!pre}>
               {DEVICE_TYPES.map((t) => (
                 <option key={t} value={t}>{t}</option>
               ))}
@@ -45,16 +46,16 @@ export default async function NewDevicePage(props: PageProps<"/owner/new">) {
           <div className="grid gap-5 sm:grid-cols-2">
             <div className="space-y-1">
               <label htmlFor="brand" className="font-medium">Brand</label>
-              <input id="brand" name="brand" defaultValue={pre?.brand} maxLength={60} required className={field} />
+              <input id="brand" name="brand" defaultValue={pre?.brand} maxLength={60} required readOnly={!!pre} autoComplete="off" className={field} />
             </div>
             <div className="space-y-1">
               <label htmlFor="model" className="font-medium">Model</label>
-              <input id="model" name="model" defaultValue={pre?.model} maxLength={80} required className={field} />
+              <input id="model" name="model" defaultValue={pre?.model} maxLength={80} required readOnly={!!pre} autoComplete="off" className={field} />
             </div>
           </div>
           <div className="space-y-1">
             <label htmlFor="ageYears" className="font-medium">Age in years</label>
-            <input id="ageYears" name="ageYears" type="number" min={0} max={40} defaultValue={pre?.ageYears ?? 2} required className={field} />
+            <input id="ageYears" name="ageYears" type="number" min={0} max={40} defaultValue={pre?.ageYears ?? 2} required readOnly={!!pre} autoComplete="off" className={field} />
           </div>
           <div className="space-y-1">
             <label htmlFor="problem" className="font-medium">What is the problem?</label>

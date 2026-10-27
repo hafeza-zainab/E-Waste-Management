@@ -4,6 +4,7 @@ import { getCurrentTechnician, getSession } from "@/lib/session";
 import { switchRole } from "@/lib/actions";
 
 const links = [
+  { href: "/agent", label: "Agent" },
   { href: "/owner", label: "My repairs" },
   { href: "/technician", label: "Technician" },
   { href: "/donate", label: "Donate" },

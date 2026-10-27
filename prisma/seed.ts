@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { computeImpact } from "../lib/impact/formulas";
 import { splitPayout } from "../lib/jobs/money";
+import { PARTS } from "../lib/agent/parts-data";
 
 const db = new PrismaClient();
 
@@ -26,6 +27,9 @@ const LIFECYCLE = ["quoted", "paid", "accepted", "in_progress", "completed", "cu
 async function main() {
   await db.$transaction([
     db.impactEvent.deleteMany(),
+    db.approvalToken.deleteMany(),
+    db.agentApproval.deleteMany(),
+    db.agentRun.deleteMany(),
     db.recyclingPickup.deleteMany(),
     db.donation.deleteMany(),
     db.verifiedRepair.deleteMany(),
@@ -35,6 +39,8 @@ async function main() {
     db.technician.deleteMany(),
     db.owner.deleteMany(),
   ]);
+
+  for (const p of PARTS) await db.part.upsert({ where: { id: p.id }, update: p, create: p });
 
   const owner = await db.owner.create({ data: { name: "Demo Owner", email: "owner@reloop.demo" } });
 

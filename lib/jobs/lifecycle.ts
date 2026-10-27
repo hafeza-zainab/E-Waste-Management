@@ -251,6 +251,11 @@ export const simulationAllowed = () => process.env.NODE_ENV !== "production" && 
 export async function simulateBuyerApproval(jobId: string) {
   if (!simulationAllowed()) throw new ActionError("Not available.", "forbidden");
   const j = await load(jobId);
+  if (j.agentRunId) {
+    // Agent-built jobs: even the dev shortcut needs the user's explicit, unexpired Approve click first.
+    const ok = await db.agentApproval.findFirst({ where: { jobId, userApprovedAt: { not: null }, expiresAt: { gt: new Date() } } });
+    if (!ok) throw new ActionError("Approve the quote in the agent first.", "forbidden");
+  }
   await move(
     jobId,
     "quoted",
