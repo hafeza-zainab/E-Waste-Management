@@ -25,6 +25,17 @@ const DEVICES = [
 const LIFECYCLE = ["quoted", "paid", "accepted", "in_progress", "completed", "customer_confirmed", "payout_released"];
 
 async function main() {
+  // Reference data (parts catalogue) is always upserted; it never touches user data.
+  for (const p of PARTS) await db.part.upsert({ where: { id: p.id }, update: p, create: p });
+
+  // Demo data is only written to an EMPTY database. A hosted instance restarting with user-created
+  // data keeps it. Use `npm run db:reset` (or SEED_RESET=true) to wipe and reseed locally.
+  const reset = process.env.SEED_RESET === "true" || process.argv.includes("--reset");
+  if (!reset && (await db.owner.count()) > 0) {
+    console.log("Database already has data: left untouched (parts refreshed). Use `npm run db:reset` to wipe and reseed.");
+    return;
+  }
+
   await db.$transaction([
     db.impactEvent.deleteMany(),
     db.approvalToken.deleteMany(),
@@ -39,8 +50,6 @@ async function main() {
     db.technician.deleteMany(),
     db.owner.deleteMany(),
   ]);
-
-  for (const p of PARTS) await db.part.upsert({ where: { id: p.id }, update: p, create: p });
 
   const owner = await db.owner.create({ data: { name: "Demo Owner", email: "owner@reloop.demo" } });
 

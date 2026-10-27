@@ -1,0 +1,51 @@
+# Render Blueprint: one free web service. Secrets are `sync: false`: Render asks for them in the dashboard
+# and they never live in this repo. See docs/deploy.md.
+services:
+  - type: web
+    name: reloop
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm ci && npm run build
+    # Applies migrations, seeds ONLY an empty database, then starts Next.js in production mode.
+    startCommand: npm run start:render
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NODE_ENV
+        value: production
+      # SQLite on the instance's ephemeral disk: it resets on every redeploy/restart, which is fine for a demo.
+      - key: DATABASE_URL
+        value: file:./prod.db
+      # Scripted AI unless you add a key AND set DEMO_MODE=false.
+      - key: DEMO_MODE
+        value: "true"
+      - key: DEMO_ACTIONS
+        value: "true"
+      # Forced off in production by code as well; listed so it is visible.
+      - key: PAYPAL_SIMULATE_APPROVAL
+        value: "false"
+      - key: AI_DAILY_CALL_CAP
+        value: "200"
+      - key: PLATFORM_FEE_BPS
+        value: "1000"
+      - key: ANTHROPIC_MODEL
+        value: claude-opus-5-5
+      # Public URL, e.g. https://reloop.onrender.com (falls back to RENDER_EXTERNAL_URL if empty).
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # Judge help panel (public by design; never put a password here).
+      - key: NEXT_PUBLIC_DEMO_BUYER_EMAIL
+        sync: false
+      - key: NEXT_PUBLIC_DEMO_BUYER_NOTE
+        sync: false

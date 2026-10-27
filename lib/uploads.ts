@@ -2,6 +2,9 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+/** Where uploads are stored. Served by app/uploads/[name]/route.ts (Next only serves public/ files that existed at build time). */
+export const uploadDir = () => process.env.UPLOAD_DIR || path.join(process.cwd(), "public", "uploads");
+
 export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 type ImageType = "image/jpeg" | "image/png" | "image/webp";
 
@@ -26,7 +29,7 @@ export async function saveImageUpload(file: FormDataEntryValue | null): Promise<
   const buf = Buffer.from(await file.arrayBuffer());
   const kind = sniff(buf);
   if (!kind) throw new Error("Photo must be a JPEG, PNG or WebP image.");
-  const dir = path.join(process.cwd(), "public", "uploads");
+  const dir = uploadDir();
   await mkdir(dir, { recursive: true });
   const name = `${randomUUID()}.${kind.ext}`;
   await writeFile(path.join(dir, name), buf);

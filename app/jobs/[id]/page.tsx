@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { JobTimeline } from "@/components/job-timeline";
 import { PayPalCheckout } from "@/components/paypal-checkout";
 import { SimulateWebhook } from "@/components/simulate-webhook";
+import { SafeImage } from "@/components/safe-image";
 import { SubmitButton } from "@/components/submit-button";
 import { cancelAction, confirmAction, rateAction, reportAction, retryPayoutAction, simulateApprovalAction } from "../actions";
 
@@ -146,10 +147,7 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
         {(job.proofPhotoPath || job.proofNotes) && (
           <Card className="space-y-2">
             <h2 className="text-xl font-bold">Proof of repair</h2>
-            {job.proofPhotoPath && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={job.proofPhotoPath} alt="Photo of the finished repair uploaded by the technician" className="max-h-80 rounded-lg border border-border" />
-            )}
+            {job.proofPhotoPath && <SafeImage src={job.proofPhotoPath} alt="Photo of the finished repair uploaded by the technician" className="max-h-80 rounded-lg border border-border" />}
             {job.proofNotes && <p className="text-sm">{job.proofNotes}</p>}
           </Card>
         )}
