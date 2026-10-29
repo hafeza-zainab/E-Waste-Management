@@ -67,6 +67,12 @@ More detail: [docs/architecture.md](docs/architecture.md).
 - **Repair agent**: Claude tool-use loop (max 10 tool calls, 90 s timeout) over deterministic tools; goal text, photos and tool results are treated as untrusted data; budget and approval are enforced server-side.
 - **Scripted fallback**: with `DEMO_MODE=true` or no API key, diagnosis uses fixtures and the agent plays a clearly labelled *scripted demo run* of three scenarios **through the same real tools and checks**. A daily cap on live calls (`AI_DAILY_CALL_CAP`) falls back to this with a notice.
 
+## Guided demo
+
+On the hosted demo (or any run with `DEMO_ACTIONS=true`) the landing page has **"Run guided demo (about 3 minutes)"**. It operates the real app, with a caption bar explaining each step: the agent run and budget block, the approval gate, a technician accepting and completing a job with a proof photo, the owner confirming, the payout, the safety stop, and the verified profile, donation and impact pages. Controls: pause, skip chapter, speed 1x/1.5x/2x, stop (Esc).
+
+What it simulates: money. The tour **never calls PayPal** (no order, authorize, capture, payout or webhook; blocked in the browser and on the server). Its payment, capture and payout are recorded as `TOUR-SIMULATED` and tagged "Tour simulation" in the UI, the AI is always the scripted run, and everything it creates is excluded from impact totals, earnings, public profiles, CVs and the donation fund and is deleted when the tour ends (or on the next page load if it was interrupted). The real sandbox checkout is untouched: try it yourself with the test buyer in the Demo guide. Details: [docs/DEMO_TOUR_NOTES.md](docs/DEMO_TOUR_NOTES.md).
+
 ## What is simulated in demo mode
 
 | Part | Demo mode (no keys) | With keys |
@@ -77,6 +83,7 @@ More detail: [docs/architecture.md](docs/architecture.md).
 | Donations | Local simulation (off in production without PayPal) | Real PayPal sandbox |
 | Recycler | Always a demo partner; "Demo control" buttons (`DEMO_ACTIONS=true`) stand in for it | same |
 | Dev "Simulate buyer approval" | Local dev only; never in production | same |
+| Guided demo money | `TOUR-SIMULATED` payment, capture and payout; PayPal never called | same (still never called) |
 
 Anything simulated is tagged **SIMULATED** in the UI and database.
 
