@@ -10,6 +10,7 @@
     "verify:ui": "tsx --env-file=.env scripts/verify-ui.ts",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
+    "ai:check": "tsx --env-file=.env scripts/ai-check.ts",
     "paypal:check": "tsx --env-file=.env scripts/paypal-check.ts",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed",

@@ -37,19 +37,27 @@ export function matchScenario(i: Pick<Intake, "type" | "problem" | "scenario">):
   return null;
 }
 
+/** Malformed or prose-wrapped model output becomes a plain message; API errors (401, 429, ...) pass through unchanged. */
+function friendlyParseError(e: unknown): never {
+  if (e instanceof Error && /Failed to parse structured output/i.test(e.message)) throw new Error("The AI returned an unreadable diagnosis. Please try again.");
+  throw e;
+}
+
 async function callClaudeDiagnosis(i: Intake, photo?: PhotoInput): Promise<ModelDiagnosis> {
   const content: Anthropic.ContentBlockParam[] = [];
   if (photo) content.push({ type: "image", source: { type: "base64", media_type: photo.mediaType, data: photo.base64 } });
   content.push({ type: "text", text: diagnosisUserText(i) });
 
   recordAiCall();
-  const res = await anthropic().messages.parse({
-    model: CLAUDE_MODEL,
-    max_tokens: 4000,
-    system: DIAGNOSIS_SYSTEM,
-    messages: [{ role: "user", content }],
-    output_config: { format: zodOutputFormat(ModelDiagnosisSchema) },
-  });
+  const res = await anthropic()
+    .messages.parse({
+      model: CLAUDE_MODEL,
+      max_tokens: 4000,
+      system: DIAGNOSIS_SYSTEM,
+      messages: [{ role: "user", content }],
+      output_config: { format: zodOutputFormat(ModelDiagnosisSchema) },
+    })
+    .catch(friendlyParseError);
   if (res.stop_reason === "refusal") throw new Error("The AI declined to diagnose this request.");
   if (!res.parsed_output) throw new Error("The AI returned an unreadable diagnosis. Please try again.");
   // Re-validate range constraints that JSON-schema output cannot express.
