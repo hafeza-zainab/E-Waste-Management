@@ -85,7 +85,7 @@ Anything simulated is tagged **SIMULATED** in the UI and database.
 **Demo mode** (no keys, 4 commands):
 
 ```bash
-git clone <repo-url> reloop && cd reloop
+git clone https://github.com/hafeza-zainab/E-Waste-Management.git reloop && cd reloop
 cp .env.example .env          # Windows PowerShell: Copy-Item .env.example .env
 npm run setup                 # install, generate Prisma client, migrate, seed
 npm run dev                   # http://localhost:3000
