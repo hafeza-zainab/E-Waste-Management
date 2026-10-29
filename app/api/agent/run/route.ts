@@ -6,6 +6,7 @@ import { runAgent, type AgentEvent } from "@/lib/agent/runner";
 import { dollarsToCents } from "@/lib/agent/budget-input";
 import { log } from "@/lib/log";
 import { getDemoOwner } from "@/lib/session";
+import { currentTourRunId } from "@/lib/tour/server";
 import { MAX_UPLOAD_BYTES, saveImageUpload } from "@/lib/uploads";
 
 export const runtime = "nodejs";
@@ -19,7 +20,9 @@ const Fields = z.object({
 
 /** Streams the agent's steps as newline-delimited JSON. Aborting the request (Stop button) stops the run. */
 export async function POST(req: Request) {
-  const limited = rateLimitResponse(req, "agent");
+  // A valid guided-demo session makes this a tour run: scripted AI only, tagged records, its own rate limit.
+  const tourRunId = await currentTourRunId();
+  const limited = rateLimitResponse(req, tourRunId ? "tourAgent" : "agent");
   if (limited) return limited;
   const tooBig = bodyTooLarge(req, 6 * 1024 * 1024);
   if (tooBig) return tooBig;
@@ -62,7 +65,7 @@ export async function POST(req: Request) {
         }
       };
       try {
-        await runAgent({ goal: parsed.data.goal, budgetCents, photo, scenario, ownerId: owner.id, signal: req.signal, emit });
+        await runAgent({ goal: parsed.data.goal, budgetCents, photo, scenario, ownerId: owner.id, signal: req.signal, emit, tourRunId: tourRunId ?? undefined });
       } catch (e) {
         log.error("agent_start_failed", { error: e instanceof Error ? e.message : "unknown" });
         emit({ type: "error", message: "The agent could not start. Nothing was charged." });

@@ -10,14 +10,14 @@ export const metadata = { title: "Impact" };
 export default async function ImpactPage() {
   const [events, repairs, jobs, donations, pickups] = await Promise.all([
     db.impactEvent.findMany({ select: { deviceId: true, outcome: true, ewasteKg: true, co2eKg: true, demo: true } }),
-    db.verifiedRepair.count({ where: { job: { status: "payout_released" } } }),
-    db.job.aggregate({ where: { status: "payout_released" }, _sum: { payoutCents: true } }),
-    db.donation.findMany({ where: { status: "completed" }, select: { amountCents: true, capturedAt: true, createdAt: true, simulated: true } }),
+    db.verifiedRepair.count({ where: { job: { status: "payout_released", isTour: false } } }),
+    db.job.aggregate({ where: { status: "payout_released", isTour: false }, _sum: { payoutCents: true } }),
+    db.donation.findMany({ where: { status: "completed", isTour: false }, select: { amountCents: true, capturedAt: true, createdAt: true, simulated: true } }),
     db.recyclingPickup.count(),
   ]);
   const t = computeTotals(events);
   const raised = donations.reduce((s, d) => s + d.amountCents, 0);
-  const demoJobs = await db.job.count({ where: { status: "payout_released", NOT: { payoutMode: "paypal_sandbox" } } });
+  const demoJobs = await db.job.count({ where: { status: "payout_released", isTour: false, NOT: { payoutMode: "paypal_sandbox" } } });
   const includesDemo = t.includesDemo || demoJobs > 0 || donations.some((d) => d.simulated) || pickups > 0;
 
   const stats = [

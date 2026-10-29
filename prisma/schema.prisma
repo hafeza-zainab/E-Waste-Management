@@ -46,6 +46,8 @@ model Device {
   diagnosisSource String? // fixture | claude
   guideJson String? // generated DIY guide
   createdAt DateTime @default(now())
+  isTour    Boolean  @default(false) // created by the guided demo; purged by cleanup, never counted anywhere
+  tourRunId String?
   jobs      Job[]
 }
 
@@ -82,6 +84,8 @@ model Job {
   proofNotes         String?
   customerRating     Int?
   agentRunId         String? // set when the quote was built by the agent: checkout then needs a user approval token
+  isTour             Boolean      @default(false) // guided-demo job: money is TOUR-SIMULATED, PayPal is never called
+  tourRunId          String?
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
   events             JobEvent[]
@@ -122,6 +126,7 @@ model Donation {
   paypalCaptureId String?
   deviceId        String?
   capturedAt      DateTime?
+  isTour          Boolean   @default(false)
   createdAt       DateTime  @default(now())
 }
 
@@ -181,7 +186,15 @@ model AgentRun {
   eventsJson  String   @default("[]")
   deviceId    String?
   jobId       String?
+  isTour      Boolean  @default(false)
+  tourRunId   String?
   createdAt   DateTime @default(now())
+}
+
+// One guided-demo session. The cookie `reloop_tour` holds its id; it is valid for 2 hours or until cleanup deletes it.
+model TourRun {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
 }
 
 // What the user is asked to approve. Binds the exact job, total and line items; expires after 15 minutes.

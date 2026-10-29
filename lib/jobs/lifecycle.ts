@@ -5,6 +5,7 @@ import { ActionError, checkPermission, type Action, type Principal } from "./per
 import { computeImpact } from "@/lib/impact/formulas";
 import { transitionJob } from "./service";
 import { isJobStatus, type JobStatus } from "./state-machine";
+import { assertTourJobAccess } from "@/lib/tour/server";
 
 async function load(jobId: string) {
   const job = await db.job.findUnique({ where: { id: jobId }, include: { device: true, technician: true } });
@@ -14,6 +15,8 @@ async function load(jobId: string) {
 
 async function authorize(action: Action, who: Principal, jobId: string) {
   const job = await load(jobId);
+  // Guided-demo jobs move only inside their own tour session (valid cookie, DEMO_ACTIONS on). No-op for real jobs.
+  await assertTourJobAccess(job);
   checkPermission(action, who, { status: job.status, technicianId: job.technicianId, ownerId: job.device.ownerId });
   return job;
 }
@@ -105,7 +108,10 @@ export async function confirmRepair(jobId: string, who: Principal) {
   if (!job.paypalAuthId) throw new ActionError("This job has no payment authorization.", "bad_state");
 
   let captureId = job.paypalCaptureId;
-  if (!captureId) {
+  if (!captureId && job.isTour) {
+    // Guided demo: nothing is captured anywhere. The id says so.
+    captureId = `SIM-TOUR-CAP-${job.id}`;
+  } else if (!captureId) {
     const plan = pp.planCapture(job.authorizedAt ?? job.createdAt);
     if (plan === "expired") return expire(jobId);
 
@@ -163,7 +169,9 @@ export async function releasePayout(jobId: string): Promise<PayoutOutcome> {
   const from = job.status;
   let result: pp.PayoutResult;
   try {
-    result = await pp.createPayout({
+    if (job.isTour) {
+      result = { mode: "simulated", batchId: `SIM-TOUR-BATCH-${job.id}`, itemId: `SIM-TOUR-ITEM-${job.id}`, status: "SUCCESS", note: "TOUR-SIMULATED payout: the guided demo never calls PayPal. In the real flow this is the PayPal Payouts API." };
+    } else result = await pp.createPayout({
       jobId: job.id,
       attempt: job.payoutAttempt,
       email: job.technician.paypalEmail,
@@ -190,7 +198,7 @@ export async function releasePayout(jobId: string): Promise<PayoutOutcome> {
     "payout_released",
     "system",
     { payoutBatchId: result.batchId, payoutItemId: result.itemId, payoutStatus: result.status, payoutMode: result.mode, payoutNote: result.note, payoutError: null },
-    `Payout ${result.mode === "simulated" ? "SIMULATED" : "sent"} (${result.batchId})`,
+    `Payout ${job.isTour ? "TOUR-SIMULATED" : result.mode === "simulated" ? "SIMULATED" : "sent"} (${result.batchId})`,
   );
   const done = await load(job.id);
   await ensureVerifiedRepair(done);
@@ -225,8 +233,9 @@ async function recordRepairImpact(job: { deviceId?: string; authSimulated?: bool
 }
 
 /** Idempotent: one VerifiedRepair per job (jobId is unique). Rating 0 = rating prompt still open. */
-export async function ensureVerifiedRepair(job: { id: string; deviceId?: string; authSimulated?: boolean; payoutMode?: string | null; technicianId: string | null; diagnosisJson: string; customerRating: number | null; payoutBatchId: string | null; device: { type: string } }) {
+export async function ensureVerifiedRepair(job: { isTour?: boolean; id: string; deviceId?: string; authSimulated?: boolean; payoutMode?: string | null; technicianId: string | null; diagnosisJson: string; customerRating: number | null; payoutBatchId: string | null; device: { type: string } }) {
   if (!job.technicianId) return;
+  if (job.isTour) return; // guided-demo repairs never become verified records or impact
   await recordRepairImpact(job);
   await db.verifiedRepair.upsert({
     where: { jobId: job.id },

@@ -22,7 +22,7 @@ export interface PublicRepair {
  */
 export async function verifiedRepairsFor(technicianId: string): Promise<PublicRepair[]> {
   const rows = await db.verifiedRepair.findMany({
-    where: { technicianId, job: { status: "payout_released" } },
+    where: { technicianId, job: { status: "payout_released", isTour: false } }, // guided-demo repairs are never public
     orderBy: { completedAt: "desc" },
     include: { job: { select: { authSimulated: true, payoutMode: true, payoutBatchId: true, paypalOrderId: true } } },
   });

@@ -64,8 +64,8 @@ async function callClaudeDiagnosis(i: Intake, photo?: PhotoInput): Promise<Model
   return StrictModelDiagnosisSchema.parse(res.parsed_output);
 }
 
-export async function diagnose(i: Intake, photo?: PhotoInput): Promise<DiagnosisResult> {
-  if (isDemoMode()) {
+export async function diagnose(i: Intake, photo?: PhotoInput, opts: { scripted?: boolean } = {}): Promise<DiagnosisResult> {
+  if (opts.scripted || isDemoMode()) {
     const key = matchScenario(i);
     const fixture = StrictModelDiagnosisSchema.parse(key ? DIAGNOSIS_FIXTURES[key] : GENERIC_FIXTURE);
     return { diagnosis: applySafetyGate(fixture, i.type), source: "fixture" };

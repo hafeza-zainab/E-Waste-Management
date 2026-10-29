@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { bodyTooLarge, rateLimitResponse } from "@/lib/security/rate-limit";
 import { log } from "@/lib/log";
+import { blockPaypalDuringTour } from "@/lib/tour/paypal-guard";
 import { DonationError, startDonation } from "@/lib/donations/service";
 
 /** Validates the donation (zod), stores it and creates the PayPal order. The amount never comes from PayPal or the DOM. */
 export async function POST(req: Request) {
+  const blocked = await blockPaypalDuringTour("/api/donations");
+  if (blocked) return blocked;
   const limited = rateLimitResponse(req, "donation");
   if (limited) return limited;
   const tooBig = bodyTooLarge(req, 10_000);

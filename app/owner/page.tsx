@@ -2,6 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { buttonVariants } from "@/components/ui/button";
 import { getDemoOwner } from "@/lib/session";
+import { currentTourRunId, tourScope } from "@/lib/tour/server";
 import { Badge, Card } from "@/components/ui/card";
 import { formatUsd } from "@/lib/jobs/money";
 
@@ -10,7 +11,7 @@ export const metadata = { title: "My repairs" };
 export default async function OwnerPage() {
   const owner = await getDemoOwner();
   const devices = await db.device.findMany({
-    where: { ownerId: owner.id },
+    where: { ownerId: owner.id, ...tourScope(await currentTourRunId()) },
     orderBy: { createdAt: "desc" },
     include: { jobs: { include: { technician: true } } },
   });

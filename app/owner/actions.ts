@@ -6,6 +6,7 @@ import { DiagnosisSchema, IntakeSchema } from "@/lib/ai/schemas";
 import { createQuotedJob } from "@/lib/jobs/service";
 import { getDemoOwner } from "@/lib/session";
 import { saveImageUpload } from "@/lib/uploads";
+import { currentTourRunId } from "@/lib/tour/server";
 import { SCENARIO_INTAKE, type ScenarioKey } from "@/lib/ai/fixtures";
 import { assertRate, RateLimitError } from "@/lib/security/rate-limit";
 import { advancePickup, bookPickup, PickupError } from "@/lib/recycling/pickup";
@@ -39,7 +40,8 @@ export async function createDevice(formData: FormData) {
     await assertRate("diagnosis");
     await assertRate("upload");
     const photo = await saveImageUpload(formData.get("photo"));
-    const result = await diagnose(intake, photo ? { mediaType: photo.mediaType, base64: photo.base64 } : undefined);
+    const tourRunId = await currentTourRunId(); // guided demo: scripted diagnosis only, record tagged for cleanup
+    const result = await diagnose(intake, photo ? { mediaType: photo.mediaType, base64: photo.base64 } : undefined, { scripted: !!tourRunId });
     const owner = await getDemoOwner();
     const device = await db.device.create({
       data: {
@@ -53,6 +55,7 @@ export async function createDevice(formData: FormData) {
         scenario: intake.scenario,
         diagnosisJson: JSON.stringify(result.diagnosis),
         diagnosisSource: result.source,
+        ...(tourRunId ? { isTour: true, tourRunId } : {}),
       },
     });
     deviceId = device.id;

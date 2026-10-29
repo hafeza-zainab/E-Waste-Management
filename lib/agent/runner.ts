@@ -228,18 +228,20 @@ export interface RunRequest {
   caller?: ModelCaller;
   forceMode?: "scripted" | "live";
   timeoutMs?: number;
+  /** Guided demo: always the scripted path (never calls Claude, even with an API key), records tagged for cleanup. */
+  tourRunId?: string;
 }
 
 export async function runAgent(req: RunRequest): Promise<{ runId: string; status: string }> {
   const budgetCents = req.budgetCents ?? parseBudgetCents(req.goal);
-  const mode = req.forceMode ?? (isDemoMode() ? "scripted" : "live");
-  const run = await db.agentRun.create({ data: { goal: req.goal, budgetCents, mode } });
+  const mode = req.tourRunId ? "scripted" : (req.forceMode ?? (isDemoMode() ? "scripted" : "live"));
+  const run = await db.agentRun.create({ data: { goal: req.goal, budgetCents, mode, ...(req.tourRunId ? { isTour: true, tourRunId: req.tourRunId } : {}) } });
   const events: AgentEvent[] = [];
   const emit: Emit = (e) => { events.push(e); req.emit(e); };
-  const ctx: AgentContext = { runId: run.id, goal: req.goal, budgetCents, ownerId: req.ownerId, photo: req.photo, scenario: undefined, state: {} };
+  const ctx: AgentContext = { runId: run.id, goal: req.goal, budgetCents, ownerId: req.ownerId, tourRunId: req.tourRunId, photo: req.photo, scenario: undefined, state: {} };
   const trace = new Trace(emit, ctx);
   emit({ type: "start", runId: run.id, mode, budgetCents });
-  if (mode === "scripted" && !req.forceMode && aiCapReached()) emit({ type: "narration", text: "Notice: today's live-AI limit has been reached, so this is a scripted demo run." });
+  if (mode === "scripted" && !req.forceMode && !req.tourRunId && aiCapReached()) emit({ type: "narration", text: "Notice: today's live-AI limit has been reached, so this is a scripted demo run." });
 
   let status: "awaiting_approval" | "finished" | "stopped" | "failed" = "failed";
   try {

@@ -62,6 +62,8 @@ async function findDonation(event: WebhookEvent) {
 export async function processWebhookEvent(event: WebhookEvent, simulated: boolean): Promise<WebhookResult> {
   const job = await findJob(event);
   const donation = !job && event.event_type === "PAYMENT.CAPTURE.COMPLETED" ? await findDonation(event) : null;
+  // Guided-demo records are TOUR-SIMULATED: a webhook can never touch them.
+  if (job?.isTour || donation?.isTour) return "ignored";
 
   try {
     await db.webhookEvent.create({ data: { eventId: event.id, type: event.event_type, jobId: job?.id, simulated } });

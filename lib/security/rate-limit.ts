@@ -15,6 +15,8 @@ export const POLICIES = {
   approval: { limit: 20, windowMs: 10 * 60_000 },
   action: { limit: 60, windowMs: 60_000 },
   clientError: { limit: 20, windowMs: 10 * 60_000 },
+  tour: { limit: 20, windowMs: 10 * 60_000 },
+  tourAgent: { limit: 8, windowMs: 10 * 60_000 },
 } as const;
 export type PolicyName = keyof typeof POLICIES;
 

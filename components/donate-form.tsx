@@ -13,6 +13,8 @@ interface Props {
   deviceId?: string;
   /** Dev-only: show the labelled "Simulate approval" button. */
   allowSimulate: boolean;
+  /** Guided demo in progress: PayPal is neither loaded nor called; the payment area shows a labelled note. */
+  tour?: boolean;
 }
 
 const isDev = process.env.NODE_ENV !== "production";
@@ -25,7 +27,7 @@ async function post<T>(url: string, body?: unknown): Promise<T> {
   return json as T;
 }
 
-export function DonateForm({ mode, clientId, deviceId, allowSimulate }: Props) {
+export function DonateForm({ mode, clientId, deviceId, allowSimulate, tour }: Props) {
   const router = useRouter();
   const [preset, setPreset] = useState<number | "custom">(1000);
   const [custom, setCustom] = useState("");
@@ -116,7 +118,11 @@ export function DonateForm({ mode, clientId, deviceId, allowSimulate }: Props) {
         </div>
       </div>
 
-      {mode === "sandbox" && clientId ? (
+      {tour ? (
+        <p data-tour="donate-tour-note" className="rounded-lg border-2 border-dashed border-amber-500 bg-amber-50 p-3 text-sm text-amber-950">
+          <strong>Tour simulation.</strong> The PayPal donation button is not loaded during the guided demo, so nothing here can reach PayPal. Finish the tour to donate with the real sandbox.
+        </p>
+      ) : mode === "sandbox" && clientId ? (
         <div className="space-y-3">
           {/* Own namespace + intent=capture: never shares an SDK instance with the job pages (intent=authorize). */}
           <PayPalScriptProvider options={{ clientId, currency: "USD", intent: "capture", dataNamespace: "paypal_donate" }}>

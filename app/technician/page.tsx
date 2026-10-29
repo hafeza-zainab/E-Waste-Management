@@ -7,10 +7,12 @@ import { SubmitButton } from "@/components/submit-button";
 import { deviceLabel } from "@/lib/jobs/device-label";
 import { formatUsd, platformFeeBps } from "@/lib/jobs/money";
 import { STATUS_LABELS, type JobStatus } from "@/lib/jobs/state-machine";
+import { currentTourRunId, tourScope } from "@/lib/tour/server";
 import { acceptAction, completeAction, declineAction, reuploadProofAction, startAction } from "../jobs/actions";
 
 const field = "min-h-11 w-full rounded-lg border border-border bg-white px-3 py-2 text-base";
 const SIM = <Badge tone="warn">SIMULATED</Badge>;
+const TOUR = <Badge tone="warn">Tour simulation</Badge>;
 
 function Money({ j, pct }: { j: { totalCents: number; platformFeeCents: number; payoutCents: number }; pct: number }) {
   return (
@@ -27,7 +29,8 @@ export const metadata = { title: "Technician dashboard" };
 export default async function TechnicianPage() {
   const tech = await getCurrentTechnician();
   const jobs = await db.job.findMany({
-    where: { technicianId: tech.id, status: { not: "quoted" } },
+    // Other visitors' guided-demo jobs stay hidden; this browser's own tour job is shown (and tagged below).
+    where: { technicianId: tech.id, status: { not: "quoted" }, ...tourScope(await currentTourRunId()) },
     orderBy: { createdAt: "desc" },
     include: { device: true },
   });
@@ -37,8 +40,9 @@ export default async function TechnicianPage() {
   const waiting = jobs.filter((j) => ["completed", "customer_confirmed", "payout_failed"].includes(j.status));
   const closed = jobs.filter((j) => ["payout_released", "cancelled", "authorization_expired"].includes(j.status));
   const released = closed.filter((j) => j.status === "payout_released");
-  const paidOut = released.reduce((s, j) => s + j.payoutCents, 0);
-  const pending = [...active, ...waiting, ...incoming].reduce((s, j) => s + j.payoutCents, 0);
+  // Earnings never include guided-demo (TOUR-SIMULATED) jobs.
+  const paidOut = released.filter((j) => !j.isTour).reduce((s, j) => s + j.payoutCents, 0);
+  const pending = [...active, ...waiting, ...incoming].filter((j) => !j.isTour).reduce((s, j) => s + j.payoutCents, 0);
 
   return (
     <div className="space-y-6">
@@ -51,7 +55,7 @@ export default async function TechnicianPage() {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
-          <p className="text-sm text-muted">Total paid out ({released.length} job{released.length === 1 ? "" : "s"}, your {pct}% share)</p>
+          <p className="text-sm text-muted">Total paid out ({released.filter((j) => !j.isTour).length} job{released.filter((j) => !j.isTour).length === 1 ? "" : "s"}, your {pct}% share)</p>
           <p className="text-3xl font-bold">{formatUsd(paidOut)}</p>
         </Card>
         <Card>
@@ -67,12 +71,12 @@ export default async function TechnicianPage() {
           <Card key={j.id} className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <strong>{deviceLabel(j.device)} <span className="font-normal text-muted">({j.device.type})</span></strong>
-              <span className="flex gap-2">{j.authSimulated && SIM}<Badge tone="good">funds held</Badge></span>
+              <span className="flex gap-2">{j.isTour ? TOUR : j.authSimulated && SIM}<Badge tone="good">funds held</Badge></span>
             </div>
             <p className="text-sm">{j.device.problem}</p>
             <Money j={j} pct={pct} />
             <div className="flex flex-wrap gap-2">
-              <form action={acceptAction}><input type="hidden" name="jobId" value={j.id} /><SubmitButton pendingText="Accepting…">Accept</SubmitButton></form>
+              <form action={acceptAction} data-tour="accept-form" data-job-id={j.id}><input type="hidden" name="jobId" value={j.id} /><SubmitButton pendingText="Accepting…">Accept</SubmitButton></form>
               <form action={declineAction}><input type="hidden" name="jobId" value={j.id} /><Button variant="outline" type="submit">Decline</Button></form>
             </div>
           </Card>
@@ -86,22 +90,22 @@ export default async function TechnicianPage() {
           <Card key={j.id} className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <strong>{deviceLabel(j.device)}</strong>
-              <Badge>{STATUS_LABELS[j.status as JobStatus]}</Badge>
+              <span className="flex gap-2">{j.isTour && TOUR}<Badge>{STATUS_LABELS[j.status as JobStatus]}</Badge></span>
             </div>
             <Money j={j} pct={pct} />
             {j.status === "accepted" ? (
-              <form action={startAction}><input type="hidden" name="jobId" value={j.id} /><SubmitButton pendingText="Starting…">Mark in progress</SubmitButton></form>
+              <form action={startAction} data-tour="start-form" data-job-id={j.id}><input type="hidden" name="jobId" value={j.id} /><SubmitButton pendingText="Starting…">Mark in progress</SubmitButton></form>
             ) : (
-              <form action={completeAction} className="space-y-3">
+              <form action={completeAction} className="space-y-3" data-tour="complete-form" data-job-id={j.id}>
                 <input type="hidden" name="jobId" value={j.id} />
                 <div className="space-y-1">
                   <label htmlFor={`photo-${j.id}`} className="font-medium">Proof photo (required)</label>
-                  <input id={`photo-${j.id}`} name="photo" type="file" accept="image/jpeg,image/png,image/webp" required className="block w-full text-sm" />
+                  <input id={`photo-${j.id}`} data-tour="proof-photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp" required className="block w-full text-sm" />
                   <p className="text-sm text-muted">JPEG, PNG or WebP, up to 4 MB.</p>
                 </div>
                 <div className="space-y-1">
                   <label htmlFor={`notes-${j.id}`} className="font-medium">What did you do?</label>
-                  <textarea id={`notes-${j.id}`} name="notes" rows={3} minLength={5} maxLength={1000} required className={field} />
+                  <textarea id={`notes-${j.id}`} data-tour="proof-notes" name="notes" rows={3} minLength={5} maxLength={1000} required className={field} />
                 </div>
                 <SubmitButton pendingText="Uploading…">Mark complete</SubmitButton>
               </form>

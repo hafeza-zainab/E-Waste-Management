@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge, Card } from "@/components/ui/card";
 import { PayPalCheckout } from "@/components/paypal-checkout";
+import { TourPayStub } from "@/components/tour/tour-pay-stub";
 import { formatUsd } from "@/lib/jobs/money";
 import type { AgentEvent } from "@/lib/agent/runner";
 import { simulateApprovalAction } from "@/app/jobs/actions";
@@ -110,13 +111,13 @@ export function AgentConsole({ mode, clientId, allowSimulate, initialEvents, ini
         >
           <div className="space-y-1">
             <label htmlFor="goal" className="font-medium">What do you need?</label>
-            <textarea id="goal" value={goal} onChange={(e) => { setGoal(e.target.value); setScenario(""); }} rows={3} maxLength={1000} required disabled={running}
+            <textarea id="goal" data-tour="goal" value={goal} onChange={(e) => { setGoal(e.target.value); setScenario(""); }} rows={3} maxLength={1000} required disabled={running}
               placeholder="My Galaxy A52 screen is cracked, fix it under $60 this weekend" className="min-h-11 w-full rounded-lg border border-border bg-white px-3 py-2 text-base" />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1">
               <label htmlFor="budget" className="font-medium">Budget in dollars (optional)</label>
-              <input id="budget" inputMode="decimal" value={budget} onChange={(e) => setBudget(e.target.value)} disabled={running} placeholder="60"
+              <input id="budget" data-tour="budget" inputMode="decimal" value={budget} onChange={(e) => setBudget(e.target.value)} disabled={running} placeholder="60"
                 className="min-h-11 w-full rounded-lg border border-border bg-white px-3 text-base" />
               <p className="text-xs text-muted">Overrides a budget written in your request. The agent cannot go over it.</p>
             </div>
@@ -127,7 +128,7 @@ export function AgentConsole({ mode, clientId, allowSimulate, initialEvents, ini
           </div>
           {formError && <p role="alert" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900">{formError}</p>}
           <div className="flex flex-wrap items-center gap-3">
-            <Button type="submit" disabled={running}>{running ? "Agent is working…" : "Start the agent"}</Button>
+            <Button type="submit" data-tour="start-agent" disabled={running}>{running ? "Agent is working…" : "Start the agent"}</Button>
             {running && <Button type="button" variant="outline" onClick={() => abortRef.current?.abort()}>Stop</Button>}
             <Badge tone={mode === "scripted" ? "warn" : "good"}>{mode === "scripted" ? "Scripted demo run (no Claude key)" : "Live Claude agent"}</Badge>
           </div>
@@ -136,7 +137,7 @@ export function AgentConsole({ mode, clientId, allowSimulate, initialEvents, ini
           <p className="mb-2 text-sm text-muted">Try an example:</p>
           <div className="flex flex-wrap gap-2">
             {EXAMPLES.map((x) => (
-              <button key={x.key} type="button" disabled={running} onClick={() => { setGoal(x.goal); setScenario(x.key); setBudget(""); void start({ goal: x.goal, budget: "", scenario: x.key }); }}
+              <button key={x.key} type="button" data-tour={`example-${x.key}`} disabled={running} onClick={() => { setGoal(x.goal); setScenario(x.key); setBudget(""); void start({ goal: x.goal, budget: "", scenario: x.key }); }}
                 className="min-h-11 rounded-full border border-border bg-white px-4 text-sm font-medium hover:bg-primary-soft disabled:opacity-50">
                 {x.title}
               </button>
@@ -150,7 +151,7 @@ export function AgentConsole({ mode, clientId, allowSimulate, initialEvents, ini
           <h2 id="trace-h" className="text-xl font-bold">Agent trace</h2>
           {events.length > 0 && runMode === "scripted" && <Badge tone="warn">Scripted demo run</Badge>}
         </div>
-        <div aria-live="polite" aria-relevant="additions text" aria-busy={running} className="space-y-2">
+        <div aria-live="polite" aria-relevant="additions text" aria-busy={running} data-tour="trace" className="space-y-2">
           {events.length === 0 && !running && <p className="text-sm text-muted">Nothing yet. Describe a problem or pick an example, and watch each step here.</p>}
           {events.map((ev, i) => <TraceItem key={i} ev={ev} />)}
           {running && <p role="status" className="text-sm text-muted">⏳ Working…</p>}
@@ -197,7 +198,7 @@ function TraceItem({ ev }: { ev: AgentEvent }) {
       return <p className="rounded-lg bg-primary-soft px-3 py-2 text-sm">🤖 {ev.text}</p>;
     case "step":
       return (
-        <div className="rounded-lg border border-border bg-card px-3 py-2 text-sm">
+        <div className="rounded-lg border border-border bg-card px-3 py-2 text-sm" data-tour={ev.status === "blocked" ? "trace-blocked" : undefined}>
           <div className="flex flex-wrap items-center gap-2">
             <span aria-hidden>{ICON[ev.status]}</span>
             <span className="sr-only">{ev.status === "ok" ? "Succeeded:" : ev.status === "blocked" ? "Blocked:" : "Failed:"}</span>
@@ -211,7 +212,7 @@ function TraceItem({ ev }: { ev: AgentEvent }) {
       );
     case "safety":
       return (
-        <div role="note" className={`rounded-lg border-2 px-3 py-2 text-sm ${ev.level === "high" ? "border-danger bg-red-50 text-red-950" : "border-border bg-card"}`}>
+        <div role="note" data-tour="trace-safety" className={`rounded-lg border-2 px-3 py-2 text-sm ${ev.level === "high" ? "border-danger bg-red-50 text-red-950" : "border-border bg-card"}`}>
           <strong>Safety gate (code, not the AI):</strong> {ev.diyAllowed ? "DIY allowed." : "DIY is not allowed for this device."}{ev.reasons.length > 0 && ` ${ev.reasons.join(" ")}`}
         </div>
       );
@@ -268,7 +269,7 @@ function QuoteCardView({ card, state, clientId, allowSimulate, onChange }: {
   };
 
   return (
-    <Card className="space-y-4" aria-labelledby="quote-h">
+    <Card className="space-y-4" aria-labelledby="quote-h" data-tour="quote-card">
       <h2 id="quote-h" className="text-xl font-bold">Your quote: {card.deviceLabel}</h2>
       <ul className="divide-y divide-border text-sm">
         {card.lines.map((l) => <li key={l.label} className="flex justify-between gap-3 py-2"><span>{l.label}</span><span>{formatUsd(l.cents)}</span></li>)}
@@ -289,15 +290,19 @@ function QuoteCardView({ card, state, clientId, allowSimulate, onChange }: {
         <p role="status" className="text-sm font-medium">This quote is no longer open (cancelled, expired or already paid). <Link className="underline" href={`/jobs/${card.jobId}`}>View the job</Link></p>
       ) : !approved ? (
         <div className="flex flex-wrap gap-3">
-          <Button onClick={approve} disabled={busy}>{busy ? "Approving…" : "Approve and continue to PayPal"}</Button>
+          <Button data-tour="approve" onClick={approve} disabled={busy}>{busy ? "Approving…" : "Approve and continue to PayPal"}</Button>
           <Button variant="outline" onClick={change} disabled={busy}>Change request</Button>
           <p className="w-full text-xs text-muted">The approval is valid for 15 minutes and is bound to exactly these items and this total.</p>
         </div>
       ) : (
         <div className="space-y-3">
           <p role="status" className="text-sm font-medium">Approved by you. Now pay with PayPal (your approval token is used once per PayPal order).</p>
-          <PayPalCheckout jobId={card.jobId} clientId={clientId} getApprovalToken={async () => (await postJson<{ token: string }>("/api/agent/approve", { approvalId: card.approvalId })).token} />
-          {allowSimulate && (
+          {card.tour ? (
+            <TourPayStub jobId={card.jobId} />
+          ) : (
+            <PayPalCheckout jobId={card.jobId} clientId={clientId} getApprovalToken={async () => (await postJson<{ token: string }>("/api/agent/approve", { approvalId: card.approvalId })).token} />
+          )}
+          {allowSimulate && !card.tour && (
             <form action={simulateApprovalAction} className="rounded-lg border border-dashed border-amber-500 bg-amber-50 p-3 text-sm">
               <input type="hidden" name="jobId" value={card.jobId} />
               <p className="mb-2 font-semibold">DEV ONLY: skip PayPal approval (SIMULATED)</p>

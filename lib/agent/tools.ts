@@ -16,6 +16,8 @@ export interface AgentContext {
   goal: string;
   budgetCents: number | null;
   ownerId: string;
+  /** Set only for guided-demo runs: every record the run creates is tagged and cleaned up with the tour. */
+  tourRunId?: string;
   photo?: PhotoInput;
   /** Scripted demo only: locks the device identity to the scenario's own fixture. */
   scenario?: ScenarioKey;
@@ -35,6 +37,8 @@ export interface QuoteCard {
   technician: { id: string; name: string; reasons: string[] };
   platformFeeCents: number;
   technicianPayoutCents: number;
+  /** Guided-demo quote: the UI shows a labelled stub instead of loading PayPal. */
+  tour?: boolean;
 }
 
 export interface ToolOutput {
@@ -75,11 +79,12 @@ const diagnoseDevice = define({
     // Scripted demo: the scenario's own fixture owns the identity, so every page shows the same device.
     const fixed = ctx.scenario ? SCENARIO_INTAKE[ctx.scenario] : null;
     const intake = IntakeSchema.parse(fixed ? { ...a, ...fixed, scenario: ctx.scenario } : a);
-    const { diagnosis, source } = await diagnose(intake, ctx.photo);
+    const { diagnosis, source } = await diagnose(intake, ctx.photo, { scripted: !!ctx.tourRunId });
     const device = await db.device.create({
       data: {
         ownerId: ctx.ownerId, type: intake.type, brand: intake.brand, model: intake.model, ageYears: intake.ageYears, problem: intake.problem,
         scenario: intake.scenario, diagnosisJson: JSON.stringify(diagnosis), diagnosisSource: source,
+        ...(ctx.tourRunId ? { isTour: true, tourRunId: ctx.tourRunId } : {}),
       },
     });
     ctx.state = { ...ctx.state, deviceId: device.id, deviceType: device.type, diagnosis };
@@ -212,7 +217,7 @@ const buildQuoteTool = define({
 
     // One open quote per run: replace an earlier unpaid quote instead of leaving duplicates.
     await db.job.deleteMany({ where: { agentRunId: ctx.runId, status: "quoted", paypalOrderId: null } });
-    const job = await persistQuote(ctx.state.deviceId!, d, quote, { agentRunId: ctx.runId });
+    const job = await persistQuote(ctx.state.deviceId!, d, quote, { agentRunId: ctx.runId, ...(ctx.tourRunId ? { isTour: true, tourRunId: ctx.tourRunId } : {}) });
     ctx.state = { ...ctx.state, jobId: job.id };
     return {
       status: "ok",
@@ -243,6 +248,7 @@ const requestUserApproval = define({
         jobId: job.id, approvalId: approval.id, expiresAt: approval.expiresAt.toISOString(), deviceLabel: `${job.device.brand} ${job.device.model}`,
         lines: quote.lines.map((l) => ({ label: l.label, cents: l.cents })), totalCents: job.totalCents, budgetCents: ctx.budgetCents,
         technician: { id: quote.technicianId, name: quote.technicianName, reasons: quote.matchReasons }, platformFeeCents: quote.platformFeeCents, technicianPayoutCents: quote.technicianPayoutCents,
+        ...(ctx.tourRunId ? { tour: true } : {}),
       };
       return {
         status: "ok", summary: "Waiting for your approval (valid 15 minutes)", terminal: true,

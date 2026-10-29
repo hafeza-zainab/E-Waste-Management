@@ -17,7 +17,7 @@ import { SafeImage } from "@/components/safe-image";
 import { SubmitButton } from "@/components/submit-button";
 import { cancelAction, confirmAction, rateAction, reportAction, retryPayoutAction, simulateApprovalAction } from "../actions";
 
-const Simulated = () => <Badge tone="warn">SIMULATED</Badge>;
+const Simulated = ({ tour }: { tour?: boolean }) => <Badge tone="warn">{tour ? "Tour simulation" : "SIMULATED"}</Badge>;
 
 export const metadata = { title: "Repair job" };
 
@@ -47,13 +47,13 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
           <Link href={`/owner/device/${job.deviceId}`} className="inline-flex min-h-11 items-center text-sm text-primary underline">Back to diagnosis</Link>
           <h1 className="mt-1 text-3xl font-bold">{deviceLabel(job.device)} repair</h1>
           <p className="text-muted">
-            {job.device.type} · Technician: {job.technician?.name ?? "unassigned"} · <Badge>{STATUS_LABELS[s]}</Badge>
+            {job.device.type} · Technician: {job.technician?.name ?? "unassigned"} · <Badge>{STATUS_LABELS[s]}</Badge>{job.isTour && <> <Badge tone="warn">Tour simulation</Badge></>}
           </p>
         </div>
 
 
         {quote && (
-          <Card className="space-y-3">
+          <Card className="space-y-3" data-tour="job-quote">
             <h2 className="text-xl font-bold">Your quote</h2>
             <p className="text-sm text-muted">
               This is the price you pay. It can differ from the diagnosis <em>estimate</em>, which is only a rough AI guide: the quote uses the matched technician&apos;s real hourly rate.
@@ -119,8 +119,8 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
               {captured && <Badge tone="good">Captured</Badge>}
               {s === "cancelled" && <Badge>Hold released</Badge>}
               {s === "authorization_expired" && <Badge tone="bad">Hold expired, nothing charged</Badge>}
-              {authSimulated && <Simulated />}
-              <span className="text-muted">{authSimulated ? "simulated PayPal authorization" : "PayPal sandbox authorization"}</span>
+              {authSimulated && <Simulated tour={job.isTour} />}
+              <span className="text-muted">{job.isTour ? "TOUR-SIMULATED authorization: PayPal was not called" : authSimulated ? "simulated PayPal authorization" : "PayPal sandbox authorization"}</span>
             </p>
             <dl className="grid gap-1 text-sm sm:grid-cols-[9rem_1fr]">
               <dt className="text-muted">Order ID</dt>
@@ -158,7 +158,7 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
                 You reported: &ldquo;{job.problemReport}&rdquo;. Your payment is <strong>not</strong> captured. The technician must upload new proof before you can confirm.
               </p>
             ) : (
-              <form action={confirmAction} className="space-y-2">
+              <form action={confirmAction} className="space-y-2" data-tour="confirm-form">
                 <input type="hidden" name="jobId" value={job.id} />
                 <p className="text-sm text-muted">Confirming captures your {formatUsd(job.totalCents)} payment and pays the technician {formatUsd(job.payoutCents)}.</p>
                 <SubmitButton pendingText="Capturing payment…">Confirm repair is done</SubmitButton>
@@ -174,11 +174,11 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
         )}
 
         {(s === "customer_confirmed" || s === "payout_failed" || s === "payout_released") && (
-          <Card className="space-y-2">
+          <Card className="space-y-2" data-tour="payout-card">
             <h2 className="text-xl font-bold">Technician payout</h2>
             <p className="flex flex-wrap items-center gap-2 text-sm">
               <Badge tone={s === "payout_released" ? "good" : s === "payout_failed" ? "bad" : "warn"}>{STATUS_LABELS[s]}</Badge>
-              {payoutSimulated && <Simulated />}
+              {payoutSimulated && <Simulated tour={job.isTour} />}
               <strong>{formatUsd(job.payoutCents)}</strong> to {job.technician?.name}
             </p>
             <dl className="grid gap-1 text-sm sm:grid-cols-[9rem_1fr]">
@@ -215,7 +215,7 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
       </div>
 
       <aside>
-        <Card>
+        <Card data-tour="timeline">
           <h2 className="mb-4 text-lg font-bold">Progress</h2>
           <JobTimeline status={s} events={job.events} />
         </Card>

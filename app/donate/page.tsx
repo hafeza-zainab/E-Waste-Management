@@ -5,6 +5,7 @@ import { DEMO_BENEFICIARY, FUND_GOAL_CENTS, REFURB_SUBSIDY_CENTS_PER_DEVICE } fr
 import { formatUsd } from "@/lib/jobs/money";
 import { Badge, Card } from "@/components/ui/card";
 import { DonateForm } from "@/components/donate-form";
+import { currentTourRunId } from "@/lib/tour/server";
 
 export const metadata = { title: "Refurbish & Donate Fund" };
 
@@ -12,8 +13,8 @@ export default async function DonatePage(props: PageProps<"/donate">) {
   const sp = await props.searchParams;
   const deviceId = typeof sp.deviceId === "string" ? sp.deviceId.slice(0, 40) : undefined;
   const [sum, recent] = await Promise.all([
-    db.donation.aggregate({ where: { status: "completed" }, _sum: { amountCents: true }, _count: true }),
-    db.donation.findMany({ where: { status: "completed" }, orderBy: { createdAt: "desc" }, take: 6, select: { id: true, donorName: true, amountCents: true, message: true, simulated: true } }),
+    db.donation.aggregate({ where: { status: "completed", isTour: false }, _sum: { amountCents: true }, _count: true }),
+    db.donation.findMany({ where: { status: "completed", isTour: false }, orderBy: { createdAt: "desc" }, take: 6, select: { id: true, donorName: true, amountCents: true, message: true, simulated: true } }),
   ]);
   const raised = sum._sum.amountCents ?? 0;
   const pct = Math.min(100, Math.round((raised / FUND_GOAL_CENTS) * 100));
@@ -45,7 +46,7 @@ export default async function DonatePage(props: PageProps<"/donate">) {
         {mode === "unavailable" ? (
           <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950">Donations are switched off because PayPal is not configured on this server.</p>
         ) : (
-          <DonateForm mode={mode} clientId={clientId} deviceId={deviceId} allowSimulate={donationSimulationAllowed()} />
+          <DonateForm mode={mode} clientId={clientId} deviceId={deviceId} allowSimulate={donationSimulationAllowed()} tour={!!(await currentTourRunId())} />
         )}
       </Card>
 
