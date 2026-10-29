@@ -1,0 +1,30 @@
+{
+  "_help": "Edit the text freely. Keys are used by scripts/record-demo.ts; a missing or empty caption shows no overlay. Only the recorder injects captions; the app itself never shows them.",
+  "01-agent-cracked-screen": {
+    "goal": "I type a goal with a budget: fix my cracked phone screen for under $60",
+    "trace": "The agent works through real tools: diagnose, safety check, parts, technician, quote",
+    "blocked": "Over budget? The code rejects the quote and the agent finds a cheaper compatible part",
+    "quote": "The agent cannot pay. It hands me an itemised quote to approve"
+  },
+  "02-safety-swollen-battery": {
+    "intro": "A laptop with a swollen battery: a fire risk",
+    "diagnosis": "Safety gate (code, not the AI): DIY is not offered for this device",
+    "book": "The only route is a skilled technician",
+    "quote": "Quote built. Nothing is charged until the owner approves and pays in PayPal"
+  },
+  "03-technician-completes": {
+    "pay": "Owner approves the quote. In this local demo the PayPal step is SIMULATED and labelled",
+    "technician": "Switch role: the technician accepts the job",
+    "progress": "...starts the repair",
+    "complete": "...and completes it with a proof photo",
+    "confirm": "Only when the owner confirms is the payment captured once and the technician paid",
+    "timeline": "Every step is on the job timeline (SIMULATED tags are shown honestly)"
+  },
+  "04-cv-certificate-impact": {
+    "profile": "Each paid-out repair joins the technician's public verified record",
+    "cv": "...and a downloadable Verified Repair CV",
+    "donate": "Donations fund refurbishing devices",
+    "certificate": "Donors get a certificate (demo, not a tax receipt)",
+    "impact": "The impact page counts each device once. Figures are illustrative estimates"
+  }
+}

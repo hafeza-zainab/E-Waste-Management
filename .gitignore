@@ -46,3 +46,7 @@ next-env.d.ts
 /prisma/*.db-journal
 /public/uploads/*
 !/public/uploads/.gitkeep
+
+# recorded demo clips
+/docs/clips/*
+!/docs/clips/.gitkeep
