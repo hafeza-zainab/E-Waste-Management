@@ -14,7 +14,7 @@
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:reset": "tsx prisma/seed.ts --reset",
-    "start:render": "prisma migrate deploy && tsx prisma/seed.ts && next start -H 0.0.0.0 -p ${PORT:-3000}",
+    "start:render": "prisma migrate deploy && tsx prisma/seed.ts && next start -H 0.0.0.0",
     "setup": "npm install && prisma generate && prisma migrate deploy && prisma db seed"
   },
   "dependencies": {

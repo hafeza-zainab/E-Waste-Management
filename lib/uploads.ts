@@ -30,8 +30,13 @@ export async function saveImageUpload(file: FormDataEntryValue | null): Promise<
   const kind = sniff(buf);
   if (!kind) throw new Error("Photo must be a JPEG, PNG or WebP image.");
   const dir = uploadDir();
-  await mkdir(dir, { recursive: true });
   const name = `${randomUUID()}.${kind.ext}`;
-  await writeFile(path.join(/*turbopackIgnore: true*/ dir, name), buf);
+  try {
+    await mkdir(dir, { recursive: true });
+    await writeFile(path.join(/*turbopackIgnore: true*/ dir, name), buf);
+  } catch {
+    // Read-only or full disk: report plainly instead of surfacing a raw fs error.
+    throw new Error("Photo storage is unavailable right now. Please try again later.");
+  }
   return { publicPath: `/uploads/${name}`, mediaType: kind.mediaType, base64: buf.toString("base64") };
 }

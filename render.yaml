@@ -6,7 +6,8 @@ services:
     runtime: node
     plan: free
     region: oregon
-    buildCommand: npm ci && npm run build
+    # NODE_ENV=production would make plain `npm ci` skip devDependencies (typescript, tailwind, tsx), which the build and seed need.
+    buildCommand: npm ci --include=dev && npm run build
     # Applies migrations, seeds ONLY an empty database, then starts Next.js in production mode.
     startCommand: npm run start:render
     healthCheckPath: /api/health

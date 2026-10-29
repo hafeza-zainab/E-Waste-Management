@@ -26,7 +26,7 @@ To use the live Claude agent: add `ANTHROPIC_API_KEY` and set `DEMO_MODE=false`.
 
 ## 2. What happens on every boot
 
-`npm run start:render` runs `prisma migrate deploy`, then `prisma/seed.ts`, then `next start`:
+`npm run start:render` runs `prisma migrate deploy`, then `prisma/seed.ts`, then `next start -H 0.0.0.0` (Next reads Render's `PORT` itself):
 
 - Migrations are applied to the SQLite file.
 - The seed refreshes the parts catalogue and writes demo data **only if the database is empty**. It never wipes user-created data. (`npm run db:reset` or `SEED_RESET=true` wipes and reseeds; use it locally.)
