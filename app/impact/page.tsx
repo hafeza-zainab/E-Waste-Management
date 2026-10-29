@@ -36,7 +36,7 @@ export default async function ImpactPage() {
     <div className="space-y-8">
       <h1 className="text-3xl font-bold">Impact</h1>
 
-      <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <dl data-tour="impact-stats" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => (
           <Card key={s.label}>
             <dt className="text-sm text-muted">{s.label}</dt>

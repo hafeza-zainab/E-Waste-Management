@@ -1,0 +1,64 @@
+{
+  "_help": "Wording for the in-app guided demo. Edit any text freely; keys are used by lib/tour/script.ts. A caption must only describe what is on screen at that moment (tests/tour-script.test.ts checks that every caption has a target on the page). {{name}} placeholders are not supported: keep the text generic.",
+  "problem": {
+    "problem": "Most broken devices become e-waste, not because they cannot be fixed, but because people cannot tell if a repair is safe, cannot trust a stranger, and cannot pay safely.",
+    "flow": "ReLoop turns that into four steps: describe the problem, get a safe priced plan, approve it while PayPal holds the money, and pay the technician only after the repair is verified."
+  },
+  "agent": {
+    "open": "First, the repair agent. Opening the real Agent page from the menu.",
+    "goal": "Typing a goal, just as a person would: a cracked Galaxy A52 screen, fixed under $60.",
+    "budget": "And the budget: $60. The agent is not able to go over it.",
+    "start": "Starting the agent. This is a scripted demo run: no AI key is used and nothing leaves this page.",
+    "trace": "Every line here is a real tool step: diagnose, safety check, find parts, find a technician, build a quote.",
+    "blocked": "The first quote went over the $60 budget, so the code rejected it. The agent then found a cheaper compatible part.",
+    "quote": "Here is the quote, within budget and itemised. The agent cannot pay for it."
+  },
+  "control": {
+    "gate": "You stay in control. The agent has no way to pay. Only this Approve button can unlock payment, and it creates a single-use approval token.",
+    "approve": "Approving the quote now.",
+    "paypal": "Here is where PayPal's checkout button would appear. The guided demo never loads or calls PayPal. You can try the real sandbox checkout afterwards, with the test buyer in the Demo guide.",
+    "tourpay": "A tour-only step, labelled TOUR-SIMULATED: it marks the money as held without touching PayPal.",
+    "held": "The payment now shows as held (Tour simulation). Opening the job page.",
+    "job": "On the job page, the timeline shows the payment held, tagged Tour simulation."
+  },
+  "technician": {
+    "switch": "Now the other side. The real role switcher turns me into the technician assigned to this job.",
+    "board": "This is the technician's dashboard, with the paid job waiting.",
+    "accept": "The technician accepts the job.",
+    "start": "And starts the repair.",
+    "photo": "Uploading the sample proof photo that ships with this demo.",
+    "notes": "Adding a short note about the work done.",
+    "complete": "Marking the repair complete. The owner will be asked to confirm."
+  },
+  "payout": {
+    "owner": "Back to the owner, with the real role switcher.",
+    "open": "Opening the job to confirm the repair.",
+    "confirm": "The owner confirms the repair is done. Only now would money move.",
+    "paid": "Payout released: the technician gets 90% and the platform fee is 10%. Tagged Tour simulation. In the real flow this is the PayPal capture and the Payouts API.",
+    "timeline": "The timeline now reaches Payout released."
+  },
+  "safety": {
+    "home": "Now a dangerous case. Back on the home page, with the swollen laptop battery scenario.",
+    "scenario": "Opening the swollen battery scenario.",
+    "diagnose": "Running the diagnosis on this scripted example.",
+    "stop": "A red safety stop. A swollen battery can ignite, so DIY is blocked.",
+    "diy": "DIY is not offered for this device. This rule is enforced in code, not left to the AI."
+  },
+  "proof": {
+    "profile": "A seeded technician's public profile. A repair is listed here only after the owner confirmed it and the payout was made.",
+    "cv": "Each technician can download a Verified Repair CV. We will not download it during the tour.",
+    "donate": "The donation fund. Everything the tour created is excluded from this total.",
+    "donateNote": "PayPal's donate button is not loaded during the tour, and this note says so.",
+    "impact": "The impact page counts real and seeded records only. Everything this tour created is excluded, and it is deleted when you finish."
+  },
+  "turn": {
+    "end": "Your turn. Try the real sandbox checkout with the test buyer, or finish and return to the home page."
+  },
+  "ui": {
+    "ended": "Tour ended early: something on the page was not where the tour expected it. The demo data it created has been removed.",
+    "stopped": "Tour stopped. The demo data it created has been removed.",
+    "paused": "Paused. Press Resume to continue the tour.",
+    "pausedByUser": "Paused because you used the page. Press Resume to continue, or Stop to leave.",
+    "cleaned": "A previous guided demo was interrupted. Its demo data has been removed."
+  }
+}

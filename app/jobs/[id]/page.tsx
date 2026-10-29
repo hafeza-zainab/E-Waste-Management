@@ -161,7 +161,7 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
               <form action={confirmAction} className="space-y-2" data-tour="confirm-form">
                 <input type="hidden" name="jobId" value={job.id} />
                 <p className="text-sm text-muted">Confirming captures your {formatUsd(job.totalCents)} payment and pays the technician {formatUsd(job.payoutCents)}.</p>
-                <SubmitButton pendingText="Capturing payment…">Confirm repair is done</SubmitButton>
+                <SubmitButton tour="confirm" pendingText="Capturing payment…">Confirm repair is done</SubmitButton>
               </form>
             )}
             <form action={reportAction} className="space-y-2 border-t border-border pt-4">

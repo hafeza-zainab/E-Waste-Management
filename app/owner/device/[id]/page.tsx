@@ -51,7 +51,7 @@ export default async function DevicePage(props: PageProps<"/owner/device/[id]">)
       )}
 
       {blocked && (
-        <section role="alert" className="rounded-2xl border-2 border-danger bg-red-50 p-5">
+        <section role="alert" data-tour="safety-stop" className="rounded-2xl border-2 border-danger bg-red-50 p-5">
           <h2 className="text-lg font-bold text-danger">Safety stop: do not attempt a DIY repair</h2>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-red-950">
             {d.safety_risk.reasons.map((r) => <li key={r}>{r}</li>)}
@@ -140,7 +140,7 @@ export default async function DevicePage(props: PageProps<"/owner/device/[id]">)
             )}
           </form>
         ) : (
-          <p className="text-sm font-medium">DIY is not offered for this device.</p>
+          <p data-tour="diy-not-offered" className="text-sm font-medium">DIY is not offered for this device.</p>
         )}
       </Card>
 

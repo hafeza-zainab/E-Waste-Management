@@ -30,7 +30,7 @@ export default async function DonatePage(props: PageProps<"/donate">) {
         </p>
       </div>
 
-      <Card className="space-y-2">
+      <Card className="space-y-2" data-tour="fund-total">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <p><strong className="text-2xl text-primary">{formatUsd(raised)}</strong> raised of {formatUsd(FUND_GOAL_CENTS)} goal</p>
           <p className="text-sm text-muted">{sum._count} donation{sum._count === 1 ? "" : "s"}</p>
@@ -41,7 +41,7 @@ export default async function DonatePage(props: PageProps<"/donate">) {
         <p className="text-sm text-muted">{pct}% of the demo goal.</p>
       </Card>
 
-      <Card className="space-y-4">
+      <Card className="space-y-4" data-tour="donate-form">
         <h2 className="text-xl font-bold">Donate</h2>
         {mode === "unavailable" ? (
           <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950">Donations are switched off because PayPal is not configured on this server.</p>

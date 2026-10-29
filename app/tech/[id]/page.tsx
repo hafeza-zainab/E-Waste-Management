@@ -29,7 +29,7 @@ export default async function TechProfile(props: PageProps<"/tech/[id]">) {
           <p className="text-muted">{tech.city} · rating {tech.rating.toFixed(1)} {tech.isTrainee && <Badge>Trainee, supervised</Badge>}</p>
           <p className="mt-2 max-w-2xl">{tech.bio}</p>
         </div>
-        <a href={`/tech/${tech.id}/cv`} className={buttonVariants()} download>Download Verified Repair CV</a>
+        <a href={`/tech/${tech.id}/cv`} data-tour="cv-button" className={buttonVariants()} download>Download Verified Repair CV</a>
       </div>
 
       <dl className="grid gap-4 sm:grid-cols-3">
@@ -44,7 +44,7 @@ export default async function TechProfile(props: PageProps<"/tech/[id]">) {
         </Card>
       </dl>
 
-      <section aria-labelledby="repairs" className="space-y-3">
+      <section aria-labelledby="repairs" data-tour="verified-repairs" className="space-y-3">
         <h2 id="repairs" className="text-xl font-bold">Verified repairs</h2>
         <p className="text-sm text-muted">Listed only after the customer confirmed the repair and PayPal paid the technician. Entries tagged demo are seeded or simulated.</p>
         {repairs.length === 0 ? (

@@ -269,7 +269,7 @@ function QuoteCardView({ card, state, clientId, allowSimulate, onChange }: {
   };
 
   return (
-    <Card className="space-y-4" aria-labelledby="quote-h" data-tour="quote-card">
+    <Card className="space-y-4" aria-labelledby="quote-h" data-tour="quote-card" data-job-id={card.jobId} data-tech-id={card.technician.id} data-tech-name={card.technician.name}>
       <h2 id="quote-h" className="text-xl font-bold">Your quote: {card.deviceLabel}</h2>
       <ul className="divide-y divide-border text-sm">
         {card.lines.map((l) => <li key={l.label} className="flex justify-between gap-3 py-2"><span>{l.label}</span><span>{formatUsd(l.cents)}</span></li>)}

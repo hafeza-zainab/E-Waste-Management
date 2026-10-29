@@ -68,7 +68,7 @@ export default async function NewDevicePage(props: PageProps<"/owner/new">) {
             <input id="photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp" className="block w-full text-sm" />
             <p className="text-sm text-muted">JPEG, PNG or WebP, up to 4 MB.</p>
           </div>
-          <SubmitButton pendingText="Diagnosing…">Diagnose</SubmitButton>
+          <SubmitButton tour="diagnose" pendingText="Diagnosing…">Diagnose</SubmitButton>
         </form>
       </Card>
     </div>

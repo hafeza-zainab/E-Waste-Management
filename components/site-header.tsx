@@ -23,24 +23,24 @@ export async function SiteHeader() {
         </Link>
         <nav aria-label="Main" className="flex flex-wrap gap-1">
           {links.map((l) => (
-            <Link key={l.href} href={l.href} className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium hover:bg-primary-soft">
+            <Link key={l.href} href={l.href} data-tour={`nav-${l.href.slice(1)}`} className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium hover:bg-primary-soft">
               {l.label}
             </Link>
           ))}
         </nav>
         <form action={switchRole} className="flex flex-wrap items-center gap-2">
           <label htmlFor="role" className="text-sm text-muted">Demo role</label>
-          <select id="role" name="role" defaultValue={role} className="min-h-11 rounded-lg border border-border bg-white px-2 text-sm">
+          <select id="role" data-tour="role-select" name="role" defaultValue={role} className="min-h-11 rounded-lg border border-border bg-white px-2 text-sm">
             <option value="owner">Owner</option>
             <option value="technician">Technician</option>
           </select>
           <label htmlFor="techId" className="sr-only">Acting as technician</label>
-          <select id="techId" name="techId" defaultValue={current.id} className="min-h-11 rounded-lg border border-border bg-white px-2 text-sm">
+          <select id="techId" data-tour="tech-select" name="techId" defaultValue={current.id} className="min-h-11 rounded-lg border border-border bg-white px-2 text-sm">
             {techs.map((t) => (
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
           </select>
-          <button className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-hover">Switch</button>
+          <button data-tour="role-switch" className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-hover">Switch</button>
         </form>
       </div>
     </header>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
+import { StartTourButton } from "@/components/tour/tour-host";
 
 const problems = [
   "People can't tell whether a fix is safe or worth it, so working devices become e-waste.",
@@ -24,7 +25,7 @@ const scenarios = [
 export default function Home() {
   return (
     <div className="space-y-12">
-      <section className="space-y-4">
+      <section className="space-y-4" data-tour="hero">
         <h1 className="max-w-3xl text-3xl font-bold leading-tight sm:text-5xl">
           Most e-waste could have been repaired.{" "}
           <span className="text-primary">ReLoop makes repair the easy choice.</span>
@@ -36,13 +37,14 @@ export default function Home() {
           <strong>Sandbox demo.</strong> Payments use the PayPal sandbox: no real money moves, and nothing here is a real repair shop.
         </p>
         <div className="flex flex-wrap gap-3">
-          <Link href="/agent" className={buttonVariants()}>Open the agent</Link>
+          {process.env.DEMO_ACTIONS === "true" && <StartTourButton className={buttonVariants({ className: "bg-amber-500 text-slate-950 hover:bg-amber-400" })} />}
+          <Link href="/agent" className={buttonVariants({ variant: process.env.DEMO_ACTIONS === "true" ? "outline" : "default" })}>Try it yourself: open the agent</Link>
           <Link href="/owner/new" className={buttonVariants({ variant: "outline" })}>Diagnose manually</Link>
           <Link href="/impact" className={buttonVariants({ variant: "outline" })}>See the impact</Link>
         </div>
       </section>
 
-      <section aria-labelledby="problem">
+      <section aria-labelledby="problem" data-tour="problem">
         <h2 id="problem" className="mb-4 text-2xl font-bold">The problem</h2>
         <ul className="grid gap-4 sm:grid-cols-3">
           {problems.map((p) => (
@@ -51,7 +53,7 @@ export default function Home() {
         </ul>
       </section>
 
-      <section aria-labelledby="how">
+      <section aria-labelledby="how" data-tour="flow">
         <h2 id="how" className="mb-4 text-2xl font-bold">How it works</h2>
         <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {steps.map((s) => (
@@ -74,7 +76,7 @@ export default function Home() {
             <Card key={s.key} className="flex flex-col">
               <h3 className="font-semibold">{s.title}</h3>
               <p className="mt-1 flex-1 text-sm text-muted">{s.text}</p>
-              <Link href={`/owner/new?scenario=${s.key}`} className={buttonVariants({ className: "mt-4" })}>
+              <Link href={`/owner/new?scenario=${s.key}`} data-tour={`scenario-${s.key}`} className={buttonVariants({ className: "mt-4" })}>
                 Try demo scenario<span className="sr-only">: {s.title}</span>
               </Link>
             </Card>

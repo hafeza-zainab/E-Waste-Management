@@ -76,7 +76,7 @@ export default async function TechnicianPage() {
             <p className="text-sm">{j.device.problem}</p>
             <Money j={j} pct={pct} />
             <div className="flex flex-wrap gap-2">
-              <form action={acceptAction} data-tour="accept-form" data-job-id={j.id}><input type="hidden" name="jobId" value={j.id} /><SubmitButton pendingText="Accepting…">Accept</SubmitButton></form>
+              <form action={acceptAction} data-tour="accept-form" data-job-id={j.id}><input type="hidden" name="jobId" value={j.id} /><SubmitButton tour="accept" pendingText="Accepting…">Accept</SubmitButton></form>
               <form action={declineAction}><input type="hidden" name="jobId" value={j.id} /><Button variant="outline" type="submit">Decline</Button></form>
             </div>
           </Card>
@@ -94,7 +94,7 @@ export default async function TechnicianPage() {
             </div>
             <Money j={j} pct={pct} />
             {j.status === "accepted" ? (
-              <form action={startAction} data-tour="start-form" data-job-id={j.id}><input type="hidden" name="jobId" value={j.id} /><SubmitButton pendingText="Starting…">Mark in progress</SubmitButton></form>
+              <form action={startAction} data-tour="start-form" data-job-id={j.id}><input type="hidden" name="jobId" value={j.id} /><SubmitButton tour="start" pendingText="Starting…">Mark in progress</SubmitButton></form>
             ) : (
               <form action={completeAction} className="space-y-3" data-tour="complete-form" data-job-id={j.id}>
                 <input type="hidden" name="jobId" value={j.id} />
@@ -107,7 +107,7 @@ export default async function TechnicianPage() {
                   <label htmlFor={`notes-${j.id}`} className="font-medium">What did you do?</label>
                   <textarea id={`notes-${j.id}`} data-tour="proof-notes" name="notes" rows={3} minLength={5} maxLength={1000} required className={field} />
                 </div>
-                <SubmitButton pendingText="Uploading…">Mark complete</SubmitButton>
+                <SubmitButton tour="complete" pendingText="Uploading…">Mark complete</SubmitButton>
               </form>
             )}
           </Card>
