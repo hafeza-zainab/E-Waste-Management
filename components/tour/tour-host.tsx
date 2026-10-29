@@ -7,8 +7,9 @@ import { SPEEDS } from "@/lib/tour/runner";
 import { uiText } from "@/lib/tour/script";
 
 const fmt = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}`;
-const btn =
-  "inline-flex min-h-11 items-center justify-center rounded-lg border border-white/40 px-3 text-sm font-semibold text-white hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300 disabled:opacity-50";
+const base = "inline-flex min-h-11 items-center justify-center rounded-lg border px-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300 disabled:opacity-50";
+const btn = `${base} border-white/40 text-white hover:bg-white/15`;
+const btnPrimary = `${base} border-amber-400 bg-amber-400 text-slate-950 hover:bg-amber-300`;
 
 /** Mounted once in the root layout so it survives client-side navigation. Hard reloads resume or clean up via bootstrap(). */
 export function TourHost() {
@@ -51,7 +52,7 @@ export function TourHost() {
           {active && !v.showEndActions && (
             <>
               {v.status === "paused" ? (
-                <button type="button" className={`${btn} bg-amber-400 text-slate-950 hover:bg-amber-300`} onClick={() => tour.resume()}>Resume</button>
+                <button type="button" className={btnPrimary} onClick={() => tour.resume()}>Resume</button>
               ) : (
                 <button type="button" className={btn} onClick={() => tour.pause("button")}>Pause</button>
               )}
@@ -67,7 +68,7 @@ export function TourHost() {
           )}
           {v.showEndActions && (
             <>
-              <button type="button" className={`${btn} bg-amber-400 text-slate-950 hover:bg-amber-300`} onClick={() => tour.tryReal()}>Try the real sandbox checkout</button>
+              <button type="button" className={btnPrimary} onClick={() => tour.tryReal()}>Try the real sandbox checkout</button>
               <button type="button" className={btn} onClick={() => tour.finish()}>Finish</button>
             </>
           )}

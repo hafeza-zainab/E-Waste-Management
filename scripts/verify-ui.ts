@@ -8,6 +8,7 @@
  */
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { chromium, type Page } from "playwright-core";
 import { PrismaClient } from "@prisma/client";
 
@@ -156,6 +157,16 @@ async function main() {
   else pass("none");
 
   await browser.close();
+
+  // The guided demo has its own end-to-end verifier: it starts a separate production server on a throwaway database
+  // (needs `npm run build`). Takes about 8 minutes; set SKIP_TOUR=1 to skip.
+  if (process.env.SKIP_TOUR) console.log("\nGuided demo: skipped (SKIP_TOUR is set)");
+  else {
+    console.log("\nGuided demo (npm run verify:tour, own server)");
+    const r = spawnSync(process.execPath, [path.join(process.cwd(), "node_modules", "tsx", "dist", "cli.mjs"), "scripts/verify-tour.ts"], { stdio: "inherit" });
+    if (r.status === 0) pass("guided demo verification passed");
+    else fail("guided demo verification failed (see its output above)");
+  }
   console.log(failures ? `\n${failures} problem(s)` : "\nAll checks passed");
   process.exit(failures ? 1 : 0);
 }
