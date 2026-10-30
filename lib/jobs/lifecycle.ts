@@ -17,7 +17,7 @@ async function authorize(action: Action, who: Principal, jobId: string) {
   const job = await load(jobId);
   // Guided-demo jobs move only inside their own tour session (valid cookie, DEMO_ACTIONS on). No-op for real jobs.
   await assertTourJobAccess(job);
-  checkPermission(action, who, { status: job.status, technicianId: job.technicianId, ownerId: job.device.ownerId });
+  checkPermission(action, who, { status: job.status, technicianId: job.technicianId, ownerId: job.device.ownerId, isTour: job.isTour, tourRunId: job.tourRunId });
   return job;
 }
 
@@ -257,9 +257,11 @@ export async function ensureVerifiedRepair(job: { isTour?: boolean; id: string; 
 export const simulationAllowed = () => process.env.NODE_ENV !== "production" && process.env.PAYPAL_SIMULATE_APPROVAL === "true";
 
 /** DEV ONLY. Marks a quoted job as paid with an authorization flagged `authSimulated`. Never reachable in production. */
-export async function simulateBuyerApproval(jobId: string) {
+export async function simulateBuyerApproval(jobId: string, who: Principal) {
   if (!simulationAllowed()) throw new ActionError("Not available.", "forbidden");
   const j = await load(jobId);
+  await assertTourJobAccess(j);
+  checkPermission("cancel", who, { status: "quoted", technicianId: j.technicianId, ownerId: j.device.ownerId, isTour: j.isTour, tourRunId: j.tourRunId }); // owner-only, job must be quoted
   if (j.agentRunId) {
     // Agent-built jobs: even the dev shortcut needs the user's explicit, unexpired Approve click first.
     const ok = await db.agentApproval.findFirst({ where: { jobId, userApprovedAt: { not: null }, expiresAt: { gt: new Date() } } });

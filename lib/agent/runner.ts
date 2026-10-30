@@ -235,7 +235,7 @@ export interface RunRequest {
 export async function runAgent(req: RunRequest): Promise<{ runId: string; status: string }> {
   const budgetCents = req.budgetCents ?? parseBudgetCents(req.goal);
   const mode = req.tourRunId ? "scripted" : (req.forceMode ?? (isDemoMode() ? "scripted" : "live"));
-  const run = await db.agentRun.create({ data: { goal: req.goal, budgetCents, mode, ...(req.tourRunId ? { isTour: true, tourRunId: req.tourRunId } : {}) } });
+  const run = await db.agentRun.create({ data: { goal: req.goal, budgetCents, mode, ownerId: req.ownerId, ...(req.tourRunId ? { isTour: true, tourRunId: req.tourRunId } : {}) } });
   const events: AgentEvent[] = [];
   const emit: Emit = (e) => { events.push(e); req.emit(e); };
   const ctx: AgentContext = { runId: run.id, goal: req.goal, budgetCents, ownerId: req.ownerId, tourRunId: req.tourRunId, photo: req.photo, scenario: undefined, state: {} };

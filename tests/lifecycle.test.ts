@@ -258,12 +258,12 @@ describe("webhooks", () => {
 describe("dev-only simulated approval", () => {
   it("is refused unless NODE_ENV is not production and PAYPAL_SIMULATE_APPROVAL=true", async () => {
     const j = await makeJob("quoted", { paypalAuthId: null, authorizedAt: null });
-    await expect(simulateBuyerApproval(j.id)).rejects.toThrow(/Not available/);
+    await expect(simulateBuyerApproval(j.id, owner)).rejects.toThrow(/Not available/);
     vi.stubEnv("PAYPAL_SIMULATE_APPROVAL", "true");
     vi.stubEnv("NODE_ENV", "production");
-    await expect(simulateBuyerApproval(j.id)).rejects.toThrow(/Not available/);
+    await expect(simulateBuyerApproval(j.id, owner)).rejects.toThrow(/Not available/);
     vi.stubEnv("NODE_ENV", "development");
-    await simulateBuyerApproval(j.id);
+    await simulateBuyerApproval(j.id, owner);
     const s = await get(j.id);
     expect(s).toMatchObject({ status: "paid", authSimulated: true });
     expect(s.paypalAuthId).toMatch(/^SIM-AUTH-/);

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { OPEN_GUIDE_EVENT, START_EVENT, tour } from "@/lib/tour/controller";
 import { SPEEDS } from "@/lib/tour/runner";
-import { uiText } from "@/lib/tour/script";
+import { uiText, type ReturnTo } from "@/lib/tour/script";
 
 const fmt = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}`;
 const base = "inline-flex min-h-11 items-center justify-center rounded-lg border px-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300 disabled:opacity-50";
@@ -17,9 +17,9 @@ export function TourHost() {
   const v = useSyncExternalStore(tour.subscribe, tour.getView, tour.getServerView);
 
   useEffect(() => {
-    tour.configure({ push: (p) => router.push(p), notify: (m) => toast(m) });
+    tour.configure({ push: (p) => router.push(p), refresh: () => router.refresh(), notify: (m) => toast(m) });
     void tour.bootstrap();
-    const onStart = () => void tour.start();
+    const onStart = (e: Event) => void tour.start(((e as CustomEvent<ReturnTo | undefined>).detail ?? "/") as ReturnTo);
     window.addEventListener(START_EVENT, onStart);
     return () => window.removeEventListener(START_EVENT, onStart);
   }, [router]);
@@ -41,6 +41,7 @@ export function TourHost() {
               </span>
               <span aria-label="Elapsed time">{fmt(v.elapsedMs)} elapsed</span>
               <span>Scripted demo run. PayPal is never called.</span>
+              {v.viewingAs && <span data-tour="viewing-as" className="rounded-full border border-amber-400 px-2 py-0.5 font-semibold text-amber-200">Viewing as: {v.viewingAs}</span>}
             </>
           )}
         </div>
@@ -78,10 +79,13 @@ export function TourHost() {
   );
 }
 
-/** Landing-page entry point. Rendered only where the tour is enabled (DEMO_ACTIONS=true). */
-export function StartTourButton({ className }: { className?: string }) {
+/**
+ * Entry point on the home page (returnTo "/": the visitor's session is left exactly as it was) and the signup page
+ * (returnTo "/signup"). Rendered only where the tour is enabled (DEMO_ACTIONS=true).
+ */
+export function StartTourButton({ className, returnTo = "/" }: { className?: string; returnTo?: ReturnTo }) {
   return (
-    <button type="button" data-tour="start-tour" className={className} onClick={() => window.dispatchEvent(new Event(START_EVENT))}>
+    <button type="button" data-tour="start-tour" data-return-to={returnTo} className={className} onClick={() => window.dispatchEvent(new CustomEvent<ReturnTo>(START_EVENT, { detail: returnTo }))}>
       ▶ Run guided demo (about 3 minutes)
     </button>
   );

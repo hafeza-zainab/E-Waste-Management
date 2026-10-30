@@ -50,3 +50,13 @@ services:
         sync: false
       - key: NEXT_PUBLIC_DEMO_BUYER_NOTE
         sync: false
+      # Demo accounts shown in the Demo guide (public by design; the password lives in the README).
+      - key: NEXT_PUBLIC_DEMO_OWNER_EMAIL
+        value: owner@reloop.demo
+      - key: NEXT_PUBLIC_DEMO_TECH_EMAIL
+        value: tech@reloop.demo
+      - key: NEXT_PUBLIC_DEMO_PASSWORD_NOTE
+        value: "Password: see the README (Demo accounts)."
+      # Optional: password for the two demo accounts. Unset = the README default (demo data only).
+      - key: DEMO_ACCOUNT_PASSWORD
+        sync: false

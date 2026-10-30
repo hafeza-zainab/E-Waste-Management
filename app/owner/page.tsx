@@ -1,17 +1,17 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { buttonVariants } from "@/components/ui/button";
-import { getDemoOwner } from "@/lib/session";
-import { currentTourRunId, tourScope } from "@/lib/tour/server";
+import { requirePrincipal } from "@/lib/session";
 import { Badge, Card } from "@/components/ui/card";
 import { formatUsd } from "@/lib/jobs/money";
 
 export const metadata = { title: "My repairs" };
 
 export default async function OwnerPage() {
-  const owner = await getDemoOwner();
+  const who = await requirePrincipal("owner", "/owner");
   const devices = await db.device.findMany({
-    where: { ownerId: owner.id, ...tourScope(await currentTourRunId()) },
+    // A tour identity sees only its own run's records; a real account never sees tour records.
+    where: { ownerId: who.ownerId, ...(who.tourRunId ? { tourRunId: who.tourRunId } : { isTour: false }) },
     orderBy: { createdAt: "desc" },
     include: { jobs: { include: { technician: true } } },
   });

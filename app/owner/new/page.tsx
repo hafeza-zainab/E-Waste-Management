@@ -1,4 +1,5 @@
 import { createDevice } from "../actions";
+import { requirePrincipal } from "@/lib/session";
 import { Card } from "@/components/ui/card";
 import { SubmitButton } from "@/components/submit-button";
 import { SCENARIO_INTAKE, type ScenarioKey } from "@/lib/ai/fixtures";
@@ -11,6 +12,7 @@ export const metadata = { title: "Diagnose a device" };
 export default async function NewDevicePage(props: PageProps<"/owner/new">) {
   const sp = await props.searchParams;
   const scenarioParam = typeof sp.scenario === "string" ? sp.scenario : undefined;
+  await requirePrincipal("owner", `/owner/new${scenarioParam && /^[a-z-]{1,40}$/.test(scenarioParam) ? `?scenario=${scenarioParam}` : ""}`);
   const scenario = scenarioParam && scenarioParam in SCENARIO_INTAKE ? (scenarioParam as ScenarioKey) : undefined;
   const pre = scenario ? SCENARIO_INTAKE[scenario] : undefined;
   const error = typeof sp.error === "string" ? sp.error : undefined;

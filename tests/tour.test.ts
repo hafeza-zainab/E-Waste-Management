@@ -12,7 +12,8 @@ vi.mock("next/headers", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
 import { db } from "@/lib/db";
-import { resetRateLimits } from "@/lib/security/rate-limit";
+import { loginAs } from "./helpers/auth";
+import { POLICIES, resetRateLimits } from "@/lib/security/rate-limit";
 import { acceptJob, confirmRepair, completeJob, startJob } from "@/lib/jobs/lifecycle";
 import { verifiedRepairsFor } from "@/lib/profile/queries";
 import { blockPaypalDuringTour } from "@/lib/tour/paypal-guard";
@@ -32,7 +33,7 @@ const quote = JSON.stringify({ lines: [{ label: "Part", cents: 3000 }], totalCen
 async function seedBase() {
   await db.$transaction([
     db.webhookEvent.deleteMany(), db.agentApproval.deleteMany(), db.agentRun.deleteMany(), db.impactEvent.deleteMany(), db.verifiedRepair.deleteMany(), db.donation.deleteMany(),
-    db.jobEvent.deleteMany(), db.job.deleteMany(), db.device.deleteMany(), db.tourRun.deleteMany(), db.technician.deleteMany(), db.owner.deleteMany(),
+    db.jobEvent.deleteMany(), db.job.deleteMany(), db.device.deleteMany(), db.tourRun.deleteMany(), db.technician.deleteMany(), db.owner.deleteMany(), db.session.deleteMany(), db.user.deleteMany(),
   ]);
   await db.owner.create({ data: { id: "o1", name: "O", email: "o@x.test" } });
   await db.technician.create({ data: { id: "t1", name: "Tech", city: "C", bio: "b", skills: "phone", rating: 4, distanceKm: 1, hourlyCents: 1000, paypalEmail: "t@x.test" } });
@@ -78,7 +79,7 @@ describe("tour session", () => {
   });
   it("is rate limited", async () => {
     let last = 200;
-    for (let i = 0; i < 25; i++) last = (await startRoute(post("/api/tour/start", {}, "7.7.7.7"))).status;
+    for (let i = 0; i < POLICIES.tour.limit + 5; i++) last = (await startRoute(post("/api/tour/start", {}, "7.7.7.7"))).status;
     expect(last).toBe(429);
   });
 });
@@ -125,7 +126,7 @@ describe("/api/tour/pay authorization", () => {
   it("is rate limited", async () => {
     await startTour();
     let last = 0;
-    for (let i = 0; i < 30; i++) last = (await payRoute(post("/api/tour/pay", { jobId: "nope" }, "5.5.5.5"))).status;
+    for (let i = 0; i < POLICIES.tour.limit + 5; i++) last = (await payRoute(post("/api/tour/pay", { jobId: "nope" }, "5.5.5.5"))).status;
     expect(last).toBe(429);
   });
 });
@@ -154,8 +155,8 @@ describe("tour jobs never reach PayPal", () => {
     const job = await tourJob(run);
     await approve(job);
     await payRoute(post("/api/tour/pay", { jobId: job.id }));
-    const tech = { kind: "technician", techId: "t1" } as const;
-    const owner = { kind: "owner", ownerId: "o1" } as const;
+    const tech = { kind: "technician", techId: "t1", tourRunId: run } as const;
+    const owner = { kind: "owner", ownerId: "o1", tourRunId: run } as const;
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     await acceptJob(job.id, tech);
     await startJob(job.id, tech);
@@ -177,14 +178,15 @@ describe("tour jobs never reach PayPal", () => {
   it("refuses to move a tour job outside its own session", async () => {
     const run = await startTour();
     const job = await tourJob(run, "paid", { paypalAuthId: "SIM-TOUR-AUTH-x", authSimulated: true });
+    const tech = { kind: "technician", techId: "t1", tourRunId: run } as const;
     jar.delete(TOUR_COOKIE);
-    await expect(acceptJob(job.id, { kind: "technician", techId: "t1" })).rejects.toThrow(/guided demo session/);
+    await expect(acceptJob(job.id, tech)).rejects.toThrow(/guided demo session/);
     jar.set(TOUR_COOKIE, (await db.tourRun.create({ data: {} })).id);
-    await expect(acceptJob(job.id, { kind: "technician", techId: "t1" })).rejects.toThrow(/guided demo session/);
+    await expect(acceptJob(job.id, tech)).rejects.toThrow(/guided demo session/);
     jar.set(TOUR_COOKIE, run);
-    await acceptJob(job.id, { kind: "technician", techId: "t1" });
+    await acceptJob(job.id, tech);
     process.env.DEMO_ACTIONS = "false";
-    await expect(startJob(job.id, { kind: "technician", techId: "t1" })).rejects.toThrow(/guided demo session/);
+    await expect(startJob(job.id, tech)).rejects.toThrow(/guided demo session/);
   });
   it("webhooks ignore tour jobs", async () => {
     const run = await startTour();
@@ -283,8 +285,8 @@ describe("tour data is excluded everywhere it could leak", () => {
     expect(impact).toContain("$5.00");
     const donate = await flat("@/app/donate/page", [{ searchParams: Promise.resolve({}) }]);
     expect(donate).not.toContain("$99.00");
-    jar.set("reloop_tech", "t1");
-    jar.set("reloop_role", "technician");
+    jar.delete(TOUR_COOKIE);
+    await loginAs(jar, { techId: "t1" });
     const board = await flat("@/app/technician/page");
     expect(board).not.toContain("$27.00");
   });

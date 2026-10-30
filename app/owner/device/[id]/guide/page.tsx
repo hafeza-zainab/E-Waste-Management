@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { db } from "@/lib/db";
+import { loadOwnedDevice } from "@/lib/auth/access";
+import { requirePrincipal } from "@/lib/session";
 import { DiagnosisSchema, GuideSchema } from "@/lib/ai/schemas";
 import { Card } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 
 export default async function GuidePage(props: PageProps<"/owner/device/[id]/guide">) {
   const { id } = await props.params;
-  const device = await db.device.findUnique({ where: { id } });
+  const who = await requirePrincipal("owner", `/owner/device/${id}/guide`);
+  const device = await loadOwnedDevice(who, id);
   if (!device?.diagnosisJson) notFound();
   const diagnosis = DiagnosisSchema.parse(JSON.parse(device.diagnosisJson));
   // The gate is re-checked on read, so a stored guide can never be shown for a non-DIY case.

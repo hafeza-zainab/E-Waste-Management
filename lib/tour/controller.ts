@@ -1,6 +1,6 @@
 import { installPaypalGuard } from "./paypal-client-guard";
 import { ChapterSkip, SPEEDS, TargetMissing, TourAbort, TourRunner } from "./runner";
-import { CHAPTERS, captionFor, type Chapter, type Step, uiText } from "./script";
+import { CHAPTERS, captionFor, chaptersFor, RETURN_PATHS, type Chapter, type ReturnTo, type Step, uiText } from "./script";
 
 /**
  * Runs the guided demo in the browser. It drives the REAL app: it finds elements by `data-tour` attributes only,
@@ -23,6 +23,11 @@ export interface TourState {
   speed: number;
   heartbeat: number;
   job?: { id: string; techId: string; techName: string };
+  /** Where the tour sends the visitor when it ends or is stopped. */
+  returnTo: ReturnTo;
+  /** True for the home-page tour: the visitor's real session is left exactly as it was (the tour never touches it at all). */
+  preserveSession: boolean;
+  seededTechId: string | null;
   done: string[];
   failures: number;
 }
@@ -38,9 +43,11 @@ export interface TourView {
   speed: number;
   pausedBy: "user" | "button" | null;
   showEndActions: boolean;
+  /** Set while the tour-only identity overlay is switched, e.g. "Technician (tour)". */
+  viewingAs: string | null;
 }
 
-const IDLE: TourView = { status: "idle", chapterIndex: 0, chapterCount: CHAPTERS.length, title: "", caption: "", position: "bottom", elapsedMs: 0, speed: 1, pausedBy: null, showEndActions: false };
+const IDLE: TourView = { status: "idle", chapterIndex: 0, chapterCount: CHAPTERS.length, title: "", caption: "", position: "bottom", elapsedMs: 0, speed: 1, pausedBy: null, showEndActions: false, viewingAs: null };
 const PRODUCES: Record<string, string> = { agent: "job", control: "paid", technician: "completed" };
 
 export const loadState = (): TourState | null => {
@@ -69,6 +76,8 @@ const setNative = (el: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElemen
 
 export interface Deps {
   push: (path: string) => void;
+  /** Re-renders server components (header, dashboards) after the tour identity or the tour session changes. */
+  refresh: () => void;
   notify: (message: string) => void;
 }
 
@@ -77,7 +86,8 @@ class TourController {
   private listeners = new Set<() => void>();
   private runner = new TourRunner();
   private state: TourState | null = null;
-  private deps: Deps = { push: (p) => location.assign(p), notify: () => {} };
+  private deps: Deps = { push: (p) => location.assign(p), refresh: () => {}, notify: () => {} };
+  private returnTo: ReturnTo = "/";
   private ring: HTMLDivElement | null = null;
   private ringTarget: Element | null = null;
   private raf = 0;
@@ -110,27 +120,35 @@ class TourController {
     const flag = hasFlagCookie();
     if (s && flag && Date.now() - s.heartbeat < STALE_MS) {
       this.state = s;
+      this.returnTo = RETURN_PATHS.includes(s.returnTo) ? s.returnTo : "/";
       void this.loop();
     } else if (s || flag) {
       // An interrupted run: state is stale or lost (tab closed, storage cleared) but the server still has a session.
       await this.cleanupServer(s?.runId);
       saveState(null);
+      this.deps.refresh();
       this.deps.notify(uiText("cleaned"));
     }
   }
 
-  async start() {
+  async start(returnTo: ReturnTo = "/") {
     if (this.running) return;
+    if (!RETURN_PATHS.includes(returnTo)) returnTo = "/";
     let runId: string;
+    let seededTechId: string | null = null;
     try {
       const res = await fetch("/api/tour/start", { method: "POST" });
       if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? "The guided demo could not start.");
-      runId = ((await res.json()) as { runId: string }).runId;
+      const body = (await res.json()) as { runId: string; seededTechId?: string | null };
+      runId = body.runId;
+      seededTechId = body.seededTechId ?? null;
     } catch (e) {
       this.deps.notify(e instanceof Error ? e.message : "The guided demo could not start.");
       return;
     }
-    this.state = { runId, chapter: 0, startedAt: Date.now(), pausedTotalMs: 0, speed: 1, heartbeat: Date.now(), done: [], failures: 0 };
+    this.state = { runId, chapter: 0, startedAt: Date.now(), pausedTotalMs: 0, speed: 1, heartbeat: Date.now(), returnTo, preserveSession: returnTo === "/", seededTechId, done: [], failures: 0 };
+    this.returnTo = returnTo;
+    this.deps.refresh(); // the header now shows the tour identity instead of the visitor's account
     saveState(this.state);
     void this.loop();
   }
@@ -165,6 +183,12 @@ class TourController {
     this.runner.abort();
     this.endResolve?.("finish");
     await this.teardown(true, uiText("stopped"));
+    this.leave();
+  }
+  /** Back to where the tour started, and re-render so the header shows the visitor's real account again. */
+  private leave() {
+    this.deps.push(this.returnTo);
+    this.deps.refresh();
   }
   /** Closing buttons on the last chapter. */
   finish() {
@@ -175,12 +199,14 @@ class TourController {
   }
   closeMessage() {
     this.emit({ ...IDLE });
+    this.leave();
   }
 
   // ---- main loop ------------------------------------------------------------------------------------------
 
   private async loop() {
     const state = this.state!;
+    const chapters = chaptersFor(state.returnTo);
     this.running = true;
     this.runner = new TourRunner();
     this.runner.setSpeed(state.speed);
@@ -188,12 +214,12 @@ class TourController {
     this.ensureRing();
     this.attachUserGuards();
     this.timers.push(window.setInterval(() => this.heartbeat(), 1000));
-    this.emit({ ...IDLE, status: "running", speed: state.speed, chapterIndex: state.chapter, title: CHAPTERS[state.chapter]?.title ?? "" });
+    this.emit({ ...IDLE, status: "running", speed: state.speed, chapterIndex: state.chapter, chapterCount: chapters.length, title: chapters[state.chapter]?.title ?? "" });
 
     let how: "finish" | "real" | null = null;
     try {
-      for (let i = state.chapter; i < CHAPTERS.length; i++) {
-        const chapter = CHAPTERS[i];
+      for (let i = state.chapter; i < chapters.length; i++) {
+        const chapter = chapters[i];
         state.chapter = i;
         saveState(state);
         this.emit({ chapterIndex: i, title: chapter.title });
@@ -227,10 +253,8 @@ class TourController {
       }
       if (state.failures > 0 && how === null) how = "finish";
       await this.teardown(true, "", "idle");
-      if (how === "real") {
-        this.deps.push("/");
-        window.setTimeout(() => window.dispatchEvent(new CustomEvent(OPEN_GUIDE_EVENT)), 600);
-      } else this.deps.push("/");
+      this.leave();
+      if (how === "real") window.setTimeout(() => window.dispatchEvent(new CustomEvent(OPEN_GUIDE_EVENT)), 600);
     } catch (e) {
       if (e instanceof TourAbort) return; // stop() already cleaned up
       console.error("[tour] unexpected error", e);
@@ -246,7 +270,7 @@ class TourController {
     };
     switch (step.t) {
       case "nav": {
-        const path = step.to === "$jobPath" ? `/jobs/${job?.id ?? ""}` : step.to === "$seededTechPath" ? await this.seededTechPath() : "/";
+        const path = step.to === "$jobPath" ? `/jobs/${job?.id ?? ""}` : step.to === "$seededTechPath" ? this.seededTechPath() : "/";
         if (`${location.pathname}${location.search}` !== path) this.deps.push(path);
         if (!(await r.until(() => `${location.pathname}${location.search}` === path, 10_000))) throw new TargetMissing(path);
         await r.wait(600);
@@ -254,6 +278,17 @@ class TourController {
       }
       case "wait": {
         if (!(await r.until(() => this.find(step.target), step.timeoutMs ?? 15_000))) throw new TargetMissing(step.target);
+        return null;
+      }
+      case "role": {
+        // Switch the tour-only overlay. The visitor's real session cookie is never sent a Set-Cookie by this call.
+        speaking(step.cap, this.find(step.target));
+        const techId = step.role === "technician" ? job?.techId : undefined;
+        const res = await fetch("/api/tour/role", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role: step.role, techId }) });
+        if (!res.ok) throw new TargetMissing("tour role");
+        this.emit({ viewingAs: step.role === "technician" ? `Technician (tour)${job?.techName ? `: ${job.techName}` : ""}` : "Owner (tour)" });
+        this.deps.refresh();
+        await r.wait(1800);
         return null;
       }
       case "capture": {
@@ -314,15 +349,6 @@ class TourController {
         await r.wait(600);
         break;
       }
-      case "select": {
-        const sel = el as HTMLSelectElement;
-        const value = step.value === "$techId" ? (job?.techId ?? "") : step.value === "$seededTech" ? "" : step.value;
-        await r.wait(900);
-        setNative(sel, value);
-        sel.dispatchEvent(new Event("change", { bubbles: true }));
-        await r.wait(400);
-        break;
-      }
       case "upload": {
         const res = await fetch(step.url);
         if (!res.ok) throw new TargetMissing(step.url);
@@ -353,11 +379,10 @@ class TourController {
     return null;
   }
 
-  private async seededTechPath() {
-    // The seeded technician with a verified record; read from the role switcher's own option list.
-    const opt = Array.from(document.querySelectorAll('[data-tour="tech-select"] option')).find((o) => /Aisha Rahman/.test(o.textContent ?? ""));
-    const id = (opt as HTMLOptionElement | undefined)?.value;
-    if (!id) throw new TargetMissing("tech-select");
+  private seededTechPath() {
+    // The seeded technician with a verified record, as chosen by the server when the tour started.
+    const id = this.state?.seededTechId;
+    if (!id) throw new TargetMissing("seeded technician");
     return `/tech/${id}`;
   }
 

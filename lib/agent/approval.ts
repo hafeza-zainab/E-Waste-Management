@@ -56,7 +56,7 @@ export async function approveByUser(approvalId: string, who: Principal, now = ne
   const job = await assertUnchanged(approval);
   const full = await db.job.findUniqueOrThrow({ where: { id: job.id }, include: { device: true } });
   try {
-    checkPermission("cancel", who, { status: "quoted", technicianId: full.technicianId, ownerId: full.device.ownerId }); // owner-only check
+    checkPermission("cancel", who, { status: "quoted", technicianId: full.technicianId, ownerId: full.device.ownerId, isTour: full.isTour, tourRunId: full.tourRunId }); // owner-only check
   } catch {
     throw new ApprovalError("forbidden", "Only the job's owner can approve it.");
   }

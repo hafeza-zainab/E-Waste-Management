@@ -3,7 +3,7 @@ import { rateLimitResponse } from "@/lib/security/rate-limit";
 import { z } from "zod";
 import { ApprovalError, approveByUser, mintToken } from "@/lib/agent/approval";
 import { log } from "@/lib/log";
-import { getPrincipal } from "@/lib/session";
+import { getPrincipalOrNull } from "@/lib/session";
 
 const Body = z.object({ approvalId: z.string().min(1).max(60) });
 
@@ -17,7 +17,8 @@ export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   try {
-    const who = await getPrincipal();
+    const who = await getPrincipalOrNull();
+    if (!who) return NextResponse.json({ error: "Please log in." }, { status: 401 });
     const approval = await approveByUser(parsed.data.approvalId, who);
     const token = await mintToken(approval.id);
     return NextResponse.json({ token, jobId: approval.jobId, expiresAt: approval.expiresAt });

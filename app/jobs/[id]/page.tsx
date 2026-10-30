@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { canViewJob } from "@/lib/auth/access";
+import { requirePrincipalAny } from "@/lib/session";
 import { parseQuote } from "@/lib/jobs/service";
 import { isJobStatus, STATUS_LABELS } from "@/lib/jobs/state-machine";
 import { deviceLabel } from "@/lib/jobs/device-label";
@@ -27,7 +29,10 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
     where: { id },
     include: { device: true, technician: true, events: { orderBy: { createdAt: "asc" } } },
   });
-  if (!job || !isJobStatus(job.status)) notFound();
+  const who = await requirePrincipalAny(`/jobs/${id}`);
+  // Not yours: the same 404 as a job that does not exist.
+  if (!job || !isJobStatus(job.status) || !canViewJob(who, job)) notFound();
+  const isOwner = who.kind === "owner";
   const quote = parseQuote(job.quoteJson);
   const mode = paypalMode();
   // The SDK client id is the server's own app id: one source, so the browser and the server can never be on different PayPal apps.
@@ -44,7 +49,7 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
     <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
       <div className="space-y-6">
         <div>
-          <Link href={`/owner/device/${job.deviceId}`} className="inline-flex min-h-11 items-center text-sm text-primary underline">Back to diagnosis</Link>
+          {isOwner ? <Link href={`/owner/device/${job.deviceId}`} className="inline-flex min-h-11 items-center text-sm text-primary underline">Back to diagnosis</Link> : <Link href="/technician" className="inline-flex min-h-11 items-center text-sm text-primary underline">Back to my jobs</Link>}
           <h1 className="mt-1 text-3xl font-bold">{deviceLabel(job.device)} repair</h1>
           <p className="text-muted">
             {job.device.type} · Technician: {job.technician?.name ?? "unassigned"} · <Badge>{STATUS_LABELS[s]}</Badge>{job.isTour && <> <Badge tone="warn">Tour simulation</Badge></>}
@@ -82,7 +87,7 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
           </Card>
         )}
 
-        {s === "quoted" && (
+        {s === "quoted" && isOwner && (
           <Card className="space-y-3">
             <h2 className="text-xl font-bold">Approve and pay</h2>
             <p className="text-sm text-muted">
@@ -150,7 +155,7 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
           </Card>
         )}
 
-        {s === "completed" && (
+        {s === "completed" && isOwner && (
           <Card className="space-y-4">
             <h2 className="text-xl font-bold">Is the repair done?</h2>
             {job.problemReport ? (
@@ -199,7 +204,7 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
           </Card>
         )}
 
-        {s === "payout_released" && !job.customerRating && (
+        {s === "payout_released" && !job.customerRating && isOwner && (
           <Card className="space-y-2">
             <h2 className="text-lg font-bold">Rate {job.technician?.name}</h2>
             <form action={rateAction} className="flex flex-wrap items-center gap-2">

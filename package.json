@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "verify:tour": "tsx scripts/verify-tour.ts",
+    "verify:auth": "tsx scripts/verify-auth.ts",
     "verify:ui": "tsx --env-file=.env scripts/verify-ui.ts",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",

@@ -1,6 +1,6 @@
 # Guided demo ("Run guided demo") notes
 
-A narrated tour that drives the **real app**: it types into the real forms, clicks the real buttons and switches the real role switcher, while a caption bar explains each step. Because it operates the product instead of playing a video, the captions cannot drift out of sync with it. It takes about 3 to 3.5 minutes at 1x speed (measured: 3:16).
+A narrated tour that drives the **real app**: it types into the real agent form, clicks the real buttons and switches a **tour-only identity** (owner or technician), while a caption bar explains each step. Because it operates the product instead of playing a video, the captions cannot drift out of sync with it. It takes about 3 to 3.5 minutes at 1x speed (measured: 3:16).
 
 > The reference files from the CampusSync tour (`docs/reference/*`) were not in this repo when it was built, so the design was done from the written brief. Nothing was ported.
 
@@ -23,14 +23,14 @@ A narrated tour that drives the **real app**: it types into the real forms, clic
 | Browser engine: finds `data-tour` targets, types, clicks, uploads, highlights, resumes, cleans up | `lib/tour/controller.ts` |
 | Caption bar, controls, landing button | `components/tour/tour-host.tsx` |
 | Session, cleanup, exclusions helpers | `lib/tour/server.ts` |
-| Routes | `app/api/tour/start`, `/pay`, `/cleanup` |
+| Routes | `app/api/tour/start`, `/role`, `/pay`, `/cleanup` |
 | Sample proof photo (made for this project, no third-party content) | `public/tour/sample-proof.png` |
 
 Targets are found **only** by `data-tour="..."` attributes (no position-based selectors). `name@job` narrows to the element inside the tour job's own card or form, because the seeded technician board has other jobs.
 
 ### Chapters (about 3 minutes at 1x)
 
-1. The problem (landing page) 2. The agent (goal, budget, trace, rejected over-budget quote, quote) 3. You stay in control (Approve, PayPal button is **not** loaded, tour-only TOUR-SIMULATED hold, job page) 4. Technician side (role switcher, accept, start, proof photo, complete) 5. Confirm and pay out (owner, confirm, TOUR-SIMULATED payout, timeline) 6. Safety first (swollen battery, red stop, "DIY is not offered") 7. Proof, giving and impact (seeded technician profile, CV button not clicked, donate page with PayPal not loaded, impact) 8. Your turn (**Try the real sandbox checkout** opens the Demo guide, or **Finish**).
+1. The problem (landing page) 2. The agent (goal, budget, trace, rejected over-budget quote, quote) 3. You stay in control (Approve, PayPal button is **not** loaded, tour-only TOUR-SIMULATED hold, job page) 4. Technician side (tour identity switches to the technician, accept, start, proof photo, complete) 5. Confirm and pay out (owner, confirm, TOUR-SIMULATED payout, timeline) 6. Safety first (swollen battery, red stop, "DIY is not offered") 7. Proof, giving and impact (seeded technician profile, CV button not clicked, donate page with PayPal not loaded, impact) 8. Your turn (**Try the real sandbox checkout** opens the Demo guide, or **Finish**).
 
 Chapter 3 differs slightly from the brief: for agent-built jobs the PayPal button lives on the agent page (after Approve), not on the job page, so that is where it is highlighted before the tour moves to the job page.
 
@@ -58,3 +58,24 @@ If a target is missing the step is skipped with a console warning and the chapte
 
 - Unit tests: `npm test` (runner, guards, authorization, cleanup, exclusions, script checks).
 - Browser: `npm run build` then `npm run verify:tour` (own production server, throwaway database, dummy PayPal credentials so any PayPal call would be visible). Runs the whole tour at 1280 px (1x) and 412 px (2x), checks zero PayPal requests, no console errors, an axe check of the caption bar, no leftovers, a reload-resume, an abandoned tab and stale state. `npm run verify:ui` runs it too (`SKIP_TOUR=1` to skip).
+
+## Entry points and the identity overlay (accounts)
+
+There are two **Run guided demo** buttons. Both start the same tour; the tour state carries `returnTo` and `preserveSession`.
+
+| | Signup page (`/signup`) | Home page (`/`) |
+|---|---|---|
+| `returnTo` / `preserveSession` | `"/signup"` / false | `"/"` / true |
+| Extra chapter | **Accounts** (first): points at the signup form, the Owner/Technician choice and the guest button. Only "say" steps: it never types into or submits the form and never creates a user. | none |
+| On finish **and** on Stop | cleanup, then navigate to `/signup` | cleanup, then navigate to `/`; the visitor's session is left exactly as it was |
+
+**The tour never touches the real session.** It used to switch a role cookie; now:
+
+- `POST /api/tour/role` sets `reloop_tour_role` (httpOnly, bound to the tour run id): `<runId>:owner` or `<runId>:technician:<techId>`. A technician is accepted only if they have a job in this very run.
+- While a tour session is valid, `getPrincipal()` returns the overlay identity and the visitor's `reloop_session` cookie is not consulted at all. The overlay has `tourRunId` set and `checkPermission` enforces the boundary both ways: a tour identity reaches only jobs of its own run; a real identity never reaches a tour job.
+- Tour records belong to a dedicated owner profile (`tour-visitor@reloop.invalid`), never to the visitor's own owner profile, so the visitor's dashboards and data are not shown, modified or counted.
+- `proxy.ts` does not refresh the session cookie while the `reloop_tour_on` flag is present, so the cookie is not even re-sent.
+- The caption bar shows **"Viewing as: Technician (tour): <name>"** or **"Owner (tour)"** when the overlay switches. The header shows "Guided demo" instead of the visitor's account.
+- Cleanup (finish, Stop, interrupted reload, 2-hour purge) also clears the overlay cookie.
+
+`tests/tour-identity.test.ts` covers the cookie, the boundaries and the untouched session; `scripts/verify-auth.ts` (`npm run verify:auth`) runs both entry points in a real browser: finish, Stop, reload, logged in / guest / logged out, zero PayPal requests, axe on the caption bar.

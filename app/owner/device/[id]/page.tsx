@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { loadOwnedDevice } from "@/lib/auth/access";
+import { requirePrincipal } from "@/lib/session";
 import { DiagnosisSchema, type RepairPath } from "@/lib/ai/schemas";
 import { createGuide, createQuote } from "../../actions";
 import { Badge, Card } from "@/components/ui/card";
@@ -26,7 +28,8 @@ export default async function DevicePage(props: PageProps<"/owner/device/[id]">)
   const { id } = await props.params;
   const sp = await props.searchParams;
   const error = typeof sp.error === "string" ? sp.error : undefined;
-  const device = await db.device.findUnique({ where: { id } });
+  const who = await requirePrincipal("owner", `/owner/device/${id}`);
+  const device = await loadOwnedDevice(who, id);
   if (!device?.diagnosisJson) notFound();
   const d = DiagnosisSchema.parse(JSON.parse(device.diagnosisJson));
   const openJob = await db.job.findFirst({ where: { deviceId: id, status: { notIn: ["payout_released", "cancelled", "authorization_expired"] } } });

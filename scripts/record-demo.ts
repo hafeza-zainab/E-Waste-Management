@@ -67,6 +67,7 @@ const clips: Clip[] = [
     id: "01",
     name: "agent-cracked-screen",
     async run({ page, cap, hold, step }) {
+      await step("log in as the demo owner", async () => { const r = await page.request.post(BASE + "/api/auth/login", { data: { email: "owner@reloop.demo", password: process.env.DEMO_ACCOUNT_PASSWORD || "reloop-demo-2026" }, headers: { origin: new URL(BASE).origin } }); if (!r.ok()) throw new Error("demo login failed"); });
       await step("open /agent", () => page.goto(BASE + "/agent", { waitUntil: "networkidle" }));
       await cap("goal");
       await step("type goal", async () => {
@@ -114,6 +115,7 @@ const clips: Clip[] = [
     id: "03",
     name: "technician-completes",
     async run({ page, cap, hold, step }) {
+      await step("log in as the demo owner", async () => { const r = await page.request.post(BASE + "/api/auth/login", { data: { email: "owner@reloop.demo", password: process.env.DEMO_ACCOUNT_PASSWORD || "reloop-demo-2026" }, headers: { origin: new URL(BASE).origin } }); if (!r.ok()) throw new Error("demo login failed"); });
       await step("open /agent", () => page.goto(BASE + "/agent", { waitUntil: "networkidle" }));
       await step("run the cracked-screen example", () => page.getByRole("button", { name: /Cracked phone screen/ }).click());
       await step("wait for the quote", () => page.getByRole("button", { name: /Approve and continue to PayPal/ }).waitFor({ timeout: 45000 }));
@@ -132,16 +134,17 @@ const clips: Clip[] = [
       await step("wait for the authorization", () => page.waitForFunction(() => document.body.innerText.includes("Payment authorized"), null, { timeout: 20000 }));
       await hold(2000);
 
-      const switchRole = async (role: "owner" | "technician", tech?: string) => {
-        await page.locator("#role").selectOption(role);
-        if (tech) await page.locator("#techId").selectOption({ label: tech });
-        await page.getByRole("button", { name: /^Switch$/ }).click();
+      // Accounts replaced the role switcher: switching sides is logging in as the other documented demo account.
+      const switchRole = async (role: "owner" | "technician") => {
+        const email = role === "owner" ? "owner@reloop.demo" : "tech@reloop.demo";
+        const res = await page.request.post(BASE + "/api/auth/login", { data: { email, password: process.env.DEMO_ACCOUNT_PASSWORD || "reloop-demo-2026" }, headers: { origin: new URL(BASE).origin } });
+        if (!res.ok()) throw new Error(`demo login as ${role} failed (${res.status()}). Is the database seeded (npm run db:reset)?`);
         await page.waitForLoadState("networkidle");
       };
       // The injected fetch tap (see overlayScript) saw the new job's id in the agent stream; the steps below act on exactly that job.
       const jobId = (await page.evaluate(() => (window as unknown as { __jobId?: string }).__jobId)) ?? "";
       await cap("technician");
-      await step(`switch to technician ${techName}`, () => switchRole("technician", techName));
+      await step(`switch to technician ${techName}`, () => switchRole("technician"));
       await step("open the technician board", () => page.goto(BASE + "/technician", { waitUntil: "networkidle" }));
       if (!jobId) throw new Error("could not read the new job id from the agent stream");
       const jobHref = `/jobs/${jobId}`;

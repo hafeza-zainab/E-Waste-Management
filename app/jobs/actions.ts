@@ -31,7 +31,7 @@ export async function retryPayoutAction(f: FormData) {
 }
 export async function simulateApprovalAction(f: FormData) {
   const id = str(f, "jobId");
-  return runAction(`/jobs/${id}`, async () => simulateBuyerApproval(id), "SIMULATED approval recorded (dev only).");
+  return runAction(`/jobs/${id}`, async () => simulateBuyerApproval(id, await getPrincipal()), "SIMULATED approval recorded (dev only).");
 }
 
 // Technician actions (also callable from /technician; the principal must be the assigned technician).

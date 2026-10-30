@@ -1,20 +1,18 @@
 import Link from "next/link";
-import { db } from "@/lib/db";
-import { getCurrentTechnician, getSession } from "@/lib/session";
-import { switchRole } from "@/lib/actions";
+import { getViewer } from "@/lib/session";
 
-const links = [
-  { href: "/agent", label: "Agent" },
-  { href: "/owner", label: "My repairs" },
-  { href: "/technician", label: "Technician" },
-  { href: "/donate", label: "Donate" },
-  { href: "/impact", label: "Impact" },
-];
+const linkClass = "inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium hover:bg-primary-soft";
 
 export async function SiteHeader() {
-  const { role } = await getSession();
-  const current = await getCurrentTechnician();
-  const techs = await db.technician.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
+  const { user, tour, principal } = await getViewer();
+  // The guided demo shows both sides, so its caption can walk from one to the other.
+  const links = [
+    { href: "/agent", label: "Agent" },
+    ...(tour || principal?.kind === "owner" ? [{ href: "/owner", label: "My repairs" }] : []),
+    ...(tour || principal?.kind === "technician" ? [{ href: "/technician", label: "Technician" }] : []),
+    { href: "/donate", label: "Donate" },
+    { href: "/impact", label: "Impact" },
+  ];
   return (
     <header className="border-b border-border bg-card">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
@@ -23,25 +21,32 @@ export async function SiteHeader() {
         </Link>
         <nav aria-label="Main" className="flex flex-wrap gap-1">
           {links.map((l) => (
-            <Link key={l.href} href={l.href} data-tour={`nav-${l.href.slice(1)}`} className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium hover:bg-primary-soft">
+            <Link key={l.href} href={l.href} data-tour={`nav-${l.href.slice(1)}`} className={linkClass}>
               {l.label}
             </Link>
           ))}
         </nav>
-        <form action={switchRole} className="flex flex-wrap items-center gap-2">
-          <label htmlFor="role" className="text-sm text-muted">Demo role</label>
-          <select id="role" data-tour="role-select" name="role" defaultValue={role} className="min-h-11 rounded-lg border border-border bg-white px-2 text-sm">
-            <option value="owner">Owner</option>
-            <option value="technician">Technician</option>
-          </select>
-          <label htmlFor="techId" className="sr-only">Acting as technician</label>
-          <select id="techId" data-tour="tech-select" name="techId" defaultValue={current.id} className="min-h-11 rounded-lg border border-border bg-white px-2 text-sm">
-            {techs.map((t) => (
-              <option key={t.id} value={t.id}>{t.name}</option>
-            ))}
-          </select>
-          <button data-tour="role-switch" className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-hover">Switch</button>
-        </form>
+        <div className="flex flex-wrap items-center gap-2 text-sm" data-tour="account-area">
+          {tour ? (
+            <span className="text-muted">Guided demo</span>
+          ) : user ? (
+            <>
+              <span>
+                <strong>{user.isGuest ? "Guest" : user.name}</strong>
+                <span className="text-muted"> · {user.isGuest ? "demo owner" : user.role}</span>
+              </span>
+              {user.isGuest && <Link href="/signup" className="min-h-11 content-center text-primary underline">Create an account to keep your data</Link>}
+              <form action="/api/auth/logout" method="post">
+                <button className="min-h-11 rounded-lg border border-border px-4 font-semibold hover:bg-primary-soft">Log out</button>
+              </form>
+            </>
+          ) : (
+            <>
+              <Link href="/login" className={linkClass}>Log in</Link>
+              <Link href="/signup" className="inline-flex min-h-11 items-center rounded-lg bg-primary px-4 font-semibold text-white hover:bg-primary-hover">Sign up</Link>
+            </>
+          )}
+        </div>
       </div>
     </header>
   );

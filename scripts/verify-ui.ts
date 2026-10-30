@@ -9,7 +9,7 @@
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { chromium, type Page } from "playwright-core";
+import { chromium, type Browser } from "playwright-core";
 import { PrismaClient } from "@prisma/client";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
@@ -26,6 +26,25 @@ const candidates = [
   "/usr/bin/google-chrome",
   "/usr/bin/chromium",
 ].filter(Boolean) as string[];
+
+const DEMO_PASSWORD = process.env.DEMO_ACCOUNT_PASSWORD || "reloop-demo-2026";
+type Role = "owner" | "technician" | null;
+const DEMO_EMAIL = { owner: "owner@reloop.demo", technician: "tech@reloop.demo" } as const;
+
+const sessions: Partial<Record<"owner" | "technician", Awaited<ReturnType<import("playwright-core").BrowserContext["storageState"]>>>> = {};
+
+/** A fresh browser context, logged in as one of the documented demo accounts when a role is given. Logs in once per role
+ *  (the login rate limit is 10 per 15 minutes) and reuses that session for every later context. */
+async function context(browser: Browser, width: number, role: Role) {
+  if (role && !sessions[role]) {
+    const login = await browser.newContext();
+    const res = await login.request.post(`${BASE}/api/auth/login`, { data: { email: DEMO_EMAIL[role], password: DEMO_PASSWORD }, headers: { origin: new URL(BASE).origin } });
+    if (!res.ok()) throw new Error(`demo login as ${role} failed (${res.status()}): is the database seeded (npm run db:reset)?`);
+    sessions[role] = await login.storageState();
+    await login.close();
+  }
+  return browser.newContext({ viewport: { width, height: 900 }, ...(role ? { storageState: sessions[role] } : {}) });
+}
 
 interface AxeV { id: string; impact: string | null; n: number; sample?: string }
 
@@ -44,25 +63,27 @@ async function main() {
   const tech = await db.technician.findFirstOrThrow({ where: { name: "Aisha Rahman" } });
   await db.$disconnect();
 
-  const routes: [string, string][] = [
-    ["landing", "/"],
-    ["diagnosis", `/owner/device/${device.id}`],
-    ["job", `/jobs/${job.id}`],
-    ["technician", "/technician"],
-    ["agent", "/agent"],
-    ["donate", "/donate"],
-    ["impact", "/impact"],
-    ["tech-profile", `/tech/${tech.id}`],
-    ["not-found", "/does-not-exist"],
+  const routes: [string, string, Role][] = [
+    ["landing", "/", null],
+    ["signup", "/signup", null],
+    ["login", "/login", null],
+    ["diagnosis", `/owner/device/${device.id}`, "owner"],
+    ["job", `/jobs/${job.id}`, "owner"],
+    ["technician", "/technician", "technician"],
+    ["agent", "/agent", "owner"],
+    ["donate", "/donate", null],
+    ["impact", "/impact", null],
+    ["tech-profile", `/tech/${tech.id}`, null],
+    ["not-found", "/does-not-exist", null],
   ];
 
   const browser = await chromium.launch({ executablePath: exe, headless: true });
   const consoleProblems: string[] = [];
 
   console.log(`\nResponsive + overflow + tap targets (${exe.split(/[\\/]/).pop()})`);
-  for (const [name, route] of routes) {
+  for (const [name, route, role] of routes) {
     for (const w of WIDTHS) {
-      const ctx = await browser.newContext({ viewport: { width: w, height: 900 } });
+      const ctx = await context(browser, w, role);
       const page = await ctx.newPage();
       page.on("console", (m) => { if (m.type() === "error" && name !== "not-found") consoleProblems.push(`${name}@${w}: ${m.text().slice(0, 160)}`); });
       page.on("pageerror", (e) => consoleProblems.push(`${name}@${w}: pageerror ${e.message.slice(0, 160)}`));
@@ -85,8 +106,8 @@ async function main() {
   }
 
   console.log("\naxe-core accessibility audit (1280px; serious/critical shown)");
-  for (const [name, route] of routes) {
-    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  for (const [name, route, role] of routes) {
+    const ctx = await context(browser, 1280, role);
     const page = await ctx.newPage();
     await page.goto(BASE + route, { waitUntil: "networkidle" });
     await page.evaluate(axeSource);
@@ -104,7 +125,7 @@ async function main() {
 
   console.log("\nKeyboard-only run of the agent flow (cracked screen -> approve -> pay)");
   {
-    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const ctx = await context(browser, 1280, "owner");
     const page = await ctx.newPage();
     await page.goto(BASE + "/agent", { waitUntil: "networkidle" });
     const tabTo = async (match: RegExp, max = 60) => {
@@ -166,6 +187,13 @@ async function main() {
     const r = spawnSync(process.execPath, [path.join(process.cwd(), "node_modules", "tsx", "dist", "cli.mjs"), "scripts/verify-tour.ts"], { stdio: "inherit" });
     if (r.status === 0) pass("guided demo verification passed");
     else fail("guided demo verification failed (see its output above)");
+  }
+  if (process.env.SKIP_AUTH) console.log("\nAccounts and demo buttons: skipped (SKIP_AUTH is set)");
+  else {
+    console.log("\nAccounts, guest mode and both demo buttons (npm run verify:auth, own server)");
+    const r = spawnSync(process.execPath, [path.join(process.cwd(), "node_modules", "tsx", "dist", "cli.mjs"), "scripts/verify-auth.ts"], { stdio: "inherit" });
+    if (r.status === 0) pass("accounts verification passed");
+    else fail("accounts verification failed (see its output above)");
   }
   console.log(failures ? `\n${failures} problem(s)` : "\nAll checks passed");
   process.exit(failures ? 1 : 0);

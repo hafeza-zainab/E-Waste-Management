@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { log } from "@/lib/log";
 import { uploadDir } from "@/lib/uploads";
+import { TOUR_ROLE_COOKIE } from "@/lib/auth/constants";
+import type { Principal } from "@/lib/jobs/permissions";
 import { TOUR_COOKIE, TOUR_FLAG_COOKIE, TOUR_MAX_AGE_MS } from "./constants";
 
 /** Tour routes only run on instances that opted into demo controls. Same switch as the recycler demo buttons. */
@@ -25,6 +27,33 @@ export async function currentTourRun() {
   } catch {
     return null; // no request scope (e.g. a script)
   }
+}
+
+/** Tour records belong to this dedicated owner profile (no login): they never mix with any real account's data. */
+export const TOUR_OWNER_EMAIL = "tour-visitor@reloop.invalid";
+export const ensureTourOwner = () => db.owner.upsert({ where: { email: TOUR_OWNER_EMAIL }, update: {}, create: { name: "Tour visitor", email: TOUR_OWNER_EMAIL } });
+
+export type TourOverlay = { runId: string; role: "owner" | "technician"; techId?: string };
+
+/**
+ * The tour-only identity. While a tour session is valid this browser acts as the tour owner, or as the technician
+ * named in the `reloop_tour_role` cookie (bound to the run id). The visitor's real session cookie is never read here
+ * and never touched: the overlay only ever reaches records tagged with this run.
+ */
+export async function getTourOverlay(): Promise<TourOverlay | null> {
+  const run = await currentTourRun();
+  if (!run) return null;
+  const raw = (await cookies()).get(TOUR_ROLE_COOKIE)?.value ?? "";
+  const [runId, role, techId] = raw.split(":");
+  if (runId === run.id && role === "technician" && techId && /^[A-Za-z0-9_-]{1,40}$/.test(techId)) return { runId: run.id, role: "technician", techId };
+  return { runId: run.id, role: "owner" };
+}
+
+export async function tourPrincipal(): Promise<Principal | null> {
+  const o = await getTourOverlay();
+  if (!o) return null;
+  if (o.role === "technician") return { kind: "technician", techId: o.techId!, tourRunId: o.runId };
+  return { kind: "owner", ownerId: (await ensureTourOwner()).id, tourRunId: o.runId };
 }
 
 export const currentTourRunId = async () => (await currentTourRun())?.id ?? null;
@@ -94,8 +123,12 @@ const opts = (maxAgeMs: number) => ({ path: "/", sameSite: "lax" as const, secur
 export const setTourCookies = (jar: Awaited<ReturnType<typeof cookies>>, runId: string) => {
   jar.set(TOUR_COOKIE, runId, { ...opts(TOUR_MAX_AGE_MS), httpOnly: true });
   jar.set(TOUR_FLAG_COOKIE, "1", { ...opts(TOUR_MAX_AGE_MS), httpOnly: false });
+  jar.set(TOUR_ROLE_COOKIE, "", { ...opts(0), httpOnly: true });
 };
+export const setTourRole = (jar: Awaited<ReturnType<typeof cookies>>, runId: string, role: "owner" | "technician", techId?: string) =>
+  jar.set(TOUR_ROLE_COOKIE, role === "technician" ? `${runId}:technician:${techId}` : `${runId}:owner`, { ...opts(TOUR_MAX_AGE_MS), httpOnly: true });
 export const clearTourCookies = (jar: Awaited<ReturnType<typeof cookies>>) => {
   jar.set(TOUR_COOKIE, "", { ...opts(0), httpOnly: true });
   jar.set(TOUR_FLAG_COOKIE, "", { ...opts(0), httpOnly: false });
+  jar.set(TOUR_ROLE_COOKIE, "", { ...opts(0), httpOnly: true });
 };
