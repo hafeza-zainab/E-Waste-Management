@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { getCurrentTechnician } from "@/lib/session";
+import { requirePrincipal } from "@/lib/session";
 import { Badge, Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
 import { deviceLabel } from "@/lib/jobs/device-label";
 import { formatUsd, platformFeeBps } from "@/lib/jobs/money";
 import { STATUS_LABELS, type JobStatus } from "@/lib/jobs/state-machine";
-import { currentTourRunId, tourScope } from "@/lib/tour/server";
 import { acceptAction, completeAction, declineAction, reuploadProofAction, startAction } from "../jobs/actions";
 
 const field = "min-h-11 w-full rounded-lg border border-border bg-white px-3 py-2 text-base";
@@ -27,10 +26,11 @@ function Money({ j, pct }: { j: { totalCents: number; platformFeeCents: number; 
 export const metadata = { title: "Technician dashboard" };
 
 export default async function TechnicianPage() {
-  const tech = await getCurrentTechnician();
+  const who = await requirePrincipal("technician", "/technician");
+  const tech = await db.technician.findUniqueOrThrow({ where: { id: who.techId } });
   const jobs = await db.job.findMany({
-    // Other visitors' guided-demo jobs stay hidden; this browser's own tour job is shown (and tagged below).
-    where: { technicianId: tech.id, status: { not: "quoted" }, ...tourScope(await currentTourRunId()) },
+    // A tour identity sees only its own run's jobs (tagged below); a real account never sees tour jobs.
+    where: { technicianId: tech.id, status: { not: "quoted" }, ...(who.tourRunId ? { tourRunId: who.tourRunId } : { isTour: false }) },
     orderBy: { createdAt: "desc" },
     include: { device: true },
   });

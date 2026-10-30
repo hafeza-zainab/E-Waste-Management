@@ -7,17 +7,26 @@ import { executeTool, modelToolSpecs, TOOLS, type AgentContext } from "@/lib/age
 import { AGENT_SYSTEM, MAX_TOOL_CALLS, matchGoalScenario, runAgent, type AgentEvent, type ModelBlock, type ModelCaller } from "@/lib/agent/runner";
 import { POST as ordersPOST } from "@/app/api/paypal/orders/route";
 import type { Principal } from "@/lib/jobs/permissions";
+import { loginAs } from "./helpers/auth";
+
+const jar = vi.hoisted(() => new Map<string, string>());
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: (n: string) => (jar.get(n) ? { name: n, value: jar.get(n)! } : undefined), set: (n: string, v: string) => (v === "" ? jar.delete(n) : jar.set(n, v)), delete: (n: string) => jar.delete(n) }),
+  headers: async () => new Headers(),
+}));
 
 const OWNER: Principal = { kind: "owner", ownerId: "o1" };
 const TECH: Principal = { kind: "technician", techId: "t-aisha" };
 
 beforeEach(async () => {
   vi.unstubAllEnvs();
+  jar.clear();
   await db.$transaction([
     db.approvalToken.deleteMany(), db.agentApproval.deleteMany(), db.agentRun.deleteMany(), db.webhookEvent.deleteMany(),
-    db.verifiedRepair.deleteMany(), db.jobEvent.deleteMany(), db.job.deleteMany(), db.device.deleteMany(), db.technician.deleteMany(), db.owner.deleteMany(),
+    db.verifiedRepair.deleteMany(), db.jobEvent.deleteMany(), db.job.deleteMany(), db.device.deleteMany(), db.technician.deleteMany(), db.owner.deleteMany(), db.session.deleteMany(), db.user.deleteMany(),
   ]);
   await db.owner.create({ data: { id: "o1", name: "Owner", email: "o@x.test" } });
+  await loginAs(jar, { ownerId: "o1" });
   const t = (id: string, name: string, skills: string, rating: number, km: number, hourly: number) =>
     db.technician.create({ data: { id, name, city: "C", bio: "b", skills, rating, distanceKm: km, hourlyCents: hourly, paypalEmail: `${id}@personal.example.com` } });
   await t("t-aisha", "Aisha Rahman", "phone,tablet", 4.9, 2.1, 1800);
@@ -250,10 +259,10 @@ describe("approval token rules", () => {
     vi.stubEnv("PAYPAL_SIMULATE_APPROVAL", "true");
     vi.stubEnv("NODE_ENV", "development");
     const c = await quotedJob();
-    await expect(simulateBuyerApproval(c.state.jobId!)).rejects.toThrow(/Approve the quote/);
+    await expect(simulateBuyerApproval(c.state.jobId!, OWNER)).rejects.toThrow(/Approve the quote/);
     await call("request_user_approval", { jobId: c.state.jobId }, c);
     await approveByUser(c.state.approvalId!, OWNER);
-    await simulateBuyerApproval(c.state.jobId!);
+    await simulateBuyerApproval(c.state.jobId!, OWNER);
     expect((await db.job.findUniqueOrThrow({ where: { id: c.state.jobId! } })).authSimulated).toBe(true);
   });
 });

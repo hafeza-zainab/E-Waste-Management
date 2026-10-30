@@ -9,10 +9,40 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Account. `email` is stored trimmed and lower-cased, so its unique index is case-insensitive in effect.
+// The Owner / Technician rows below are the role profiles every lifecycle rule already keys on; each links to its User.
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  name         String
+  passwordHash String // "scrypt$..." or "!" (no usable password: seeded technicians, migrated rows)
+  role         String // owner | technician
+  isGuest      Boolean     @default(false) // demo guest: purged after 24 hours with its data
+  createdAt    DateTime    @default(now())
+  owner        Owner?
+  technician   Technician?
+  sessions     Session[]
+}
+
+// Only the SHA-256 of the cookie token is stored.
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  lastSeen  DateTime @default(now())
+
+  @@index([userId])
+}
+
 model Owner {
   id      String   @id @default(cuid())
   name    String
   email   String   @unique
+  userId  String?  @unique
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   devices Device[]
 }
 
@@ -27,6 +57,8 @@ model Technician {
   hourlyCents  Int
   paypalEmail  String // sandbox receiver for Payouts
   isTrainee    Boolean          @default(false)
+  userId       String?          @unique
+  user         User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
   jobs         Job[]
   repairs      VerifiedRepair[]
 }
@@ -186,6 +218,7 @@ model AgentRun {
   eventsJson  String   @default("[]")
   deviceId    String?
   jobId       String?
+  ownerId     String? // the Owner profile that started the run; /agent?run= is shown only to that owner
   isTour      Boolean  @default(false)
   tourRunId   String?
   createdAt   DateTime @default(now())

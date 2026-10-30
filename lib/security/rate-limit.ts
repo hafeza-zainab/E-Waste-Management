@@ -15,8 +15,12 @@ export const POLICIES = {
   approval: { limit: 20, windowMs: 10 * 60_000 },
   action: { limit: 60, windowMs: 60_000 },
   clientError: { limit: 20, windowMs: 10 * 60_000 },
-  tour: { limit: 20, windowMs: 10 * 60_000 },
+  tour: { limit: 40, windowMs: 10 * 60_000 },
+  tourRole: { limit: 60, windowMs: 10 * 60_000 },
   tourAgent: { limit: 8, windowMs: 10 * 60_000 },
+  login: { limit: 10, windowMs: 15 * 60_000 },
+  signup: { limit: 5, windowMs: 60 * 60_000 },
+  guest: { limit: 10, windowMs: 60 * 60_000 },
 } as const;
 export type PolicyName = keyof typeof POLICIES;
 
@@ -59,6 +63,17 @@ export function check(name: PolicyName, ip: string, sid: string | null, now = Da
   const p = POLICIES[name];
   const waits = [hit(`${name}:ip:${ip}`, p, now), sid ? hit(`${name}:sid:${sid}`, p, now) : 0];
   return Math.max(...waits);
+}
+
+/** Auth routes: limited per IP and, separately, per email (so one account cannot be hammered from many IPs). */
+export function authRateLimit(req: Request, name: "login" | "signup" | "guest", email?: string): Response | null {
+  const p = POLICIES[name];
+  const waits = [hit(`${name}:ip:${clientIp(req.headers)}`, p)];
+  if (email) waits.push(hit(`${name}:email:${email.slice(0, 254)}`, p));
+  const wait = Math.max(...waits);
+  if (!wait) return null;
+  log.warn("rate_limited", { policy: name });
+  return Response.json({ error: new RateLimitError(wait).message, retryAfter: wait }, { status: 429, headers: { "Retry-After": String(wait) } });
 }
 
 /** For route handlers: returns a ready 429 Response, or null when allowed. */

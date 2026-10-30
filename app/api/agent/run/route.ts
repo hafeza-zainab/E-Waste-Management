@@ -5,7 +5,7 @@ import { SCENARIO_INTAKE, type ScenarioKey } from "@/lib/ai/fixtures";
 import { runAgent, type AgentEvent } from "@/lib/agent/runner";
 import { dollarsToCents } from "@/lib/agent/budget-input";
 import { log } from "@/lib/log";
-import { getDemoOwner } from "@/lib/session";
+import { getPrincipalOrNull } from "@/lib/session";
 import { currentTourRunId } from "@/lib/tour/server";
 import { MAX_UPLOAD_BYTES, saveImageUpload } from "@/lib/uploads";
 
@@ -21,6 +21,9 @@ const Fields = z.object({
 /** Streams the agent's steps as newline-delimited JSON. Aborting the request (Stop button) stops the run. */
 export async function POST(req: Request) {
   // A valid guided-demo session makes this a tour run: scripted AI only, tagged records, its own rate limit.
+  const who = await getPrincipalOrNull();
+  if (!who) return Response.json({ error: "Please log in or continue as a guest to use the agent." }, { status: 401 });
+  if (who.kind !== "owner") return Response.json({ error: "Only device owners can use the agent." }, { status: 403 });
   const tourRunId = await currentTourRunId();
   const limited = rateLimitResponse(req, tourRunId ? "tourAgent" : "agent");
   if (limited) return limited;
@@ -53,7 +56,6 @@ export async function POST(req: Request) {
     return Response.json({ error: e instanceof Error ? e.message : `Photo is invalid (max ${MAX_UPLOAD_BYTES / 1024 / 1024} MB).` }, { status: 400 });
   }
 
-  const owner = await getDemoOwner();
   const enc = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
@@ -65,7 +67,7 @@ export async function POST(req: Request) {
         }
       };
       try {
-        await runAgent({ goal: parsed.data.goal, budgetCents, photo, scenario, ownerId: owner.id, signal: req.signal, emit, tourRunId: tourRunId ?? undefined });
+        await runAgent({ goal: parsed.data.goal, budgetCents, photo, scenario, ownerId: who.ownerId, signal: req.signal, emit, tourRunId: tourRunId ?? undefined });
       } catch (e) {
         log.error("agent_start_failed", { error: e instanceof Error ? e.message : "unknown" });
         emit({ type: "error", message: "The agent could not start. Nothing was charged." });

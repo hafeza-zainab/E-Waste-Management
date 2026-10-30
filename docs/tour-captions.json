@@ -1,5 +1,10 @@
 {
   "_help": "Wording for the in-app guided demo. Edit any text freely; keys are used by lib/tour/script.ts. A caption must only describe what is on screen at that moment (tests/tour-script.test.ts checks that every caption has a target on the page). {{name}} placeholders are not supported: keep the text generic.",
+  "accounts": {
+    "form": "This is the real signup form. The guided demo only points at it: it never types into it and never creates an account.",
+    "roles": "First choice: Owner or Technician. An owner describes a broken device, approves a quote and confirms the repair. A technician accepts paid jobs, uploads proof and gets paid after the owner confirms.",
+    "guest": "No sign-up needed to explore: Continue as guest creates a temporary demo account that is deleted after 24 hours."
+  },
   "problem": {
     "problem": "Most broken devices become e-waste, not because they cannot be fixed, but because people cannot tell if a repair is safe, cannot trust a stranger, and cannot pay safely.",
     "flow": "ReLoop turns that into four steps: describe the problem, get a safe priced plan, approve it while PayPal holds the money, and pay the technician only after the repair is verified."
@@ -22,7 +27,7 @@
     "job": "On the job page, the timeline shows the payment held, tagged Tour simulation."
   },
   "technician": {
-    "switch": "Now the other side. The real role switcher turns me into the technician assigned to this job.",
+    "switch": "Now the other side. The guided demo switches its own tour-only identity to the technician assigned to this job. Your real login is not touched.",
     "board": "This is the technician's dashboard, with the paid job waiting.",
     "accept": "The technician accepts the job.",
     "start": "And starts the repair.",
@@ -31,7 +36,7 @@
     "complete": "Marking the repair complete. The owner will be asked to confirm."
   },
   "payout": {
-    "owner": "Back to the owner, with the real role switcher.",
+    "owner": "Back to the owner, again with the tour-only identity.",
     "open": "Opening the job to confirm the repair.",
     "confirm": "The owner confirms the repair is done. Only now would money move.",
     "paid": "Payout released: the technician gets 90% and the platform fee is 10%. Tagged Tour simulation. In the real flow this is the PayPal capture and the Payouts API.",
@@ -52,13 +57,14 @@
     "impact": "The impact page counts real and seeded records only. Everything this tour created is excluded, and it is deleted when you finish."
   },
   "turn": {
-    "end": "Your turn. Try the real sandbox checkout with the test buyer, or finish and return to the home page."
+    "end": "Your turn. Try the real sandbox checkout with the test buyer, or finish and go back to where you started."
   },
   "ui": {
     "ended": "Tour ended early: something on the page was not where the tour expected it. The demo data it created has been removed.",
     "stopped": "Tour stopped. The demo data it created has been removed.",
     "paused": "Paused. Press Resume to continue the tour.",
     "pausedByUser": "Paused because you used the page. Press Resume to continue, or Stop to leave.",
-    "cleaned": "A previous guided demo was interrupted. Its demo data has been removed."
+    "cleaned": "A previous guided demo was interrupted. Its demo data has been removed.",
+    "viewingAs": "Viewing as"
   }
 }

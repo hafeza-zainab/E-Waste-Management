@@ -8,6 +8,8 @@ import { parseQuote } from "@/lib/jobs/service";
 import { PayPalError } from "@/lib/paypal/client";
 import { blockPaypalDuringTour } from "@/lib/tour/paypal-guard";
 import { createOrder } from "@/lib/paypal/orders";
+import { isJobOwner } from "@/lib/auth/access";
+import { getPrincipalOrNull } from "@/lib/session";
 
 const Body = z.object({ jobId: z.string().min(1), approvalToken: z.string().max(200).optional() });
 
@@ -22,6 +24,9 @@ export async function POST(req: Request) {
   const blocked = await blockPaypalDuringTour("/api/paypal/orders", job);
   if (blocked) return blocked;
   if (!job) return NextResponse.json({ error: "Job not found." }, { status: 404 });
+  const who = await getPrincipalOrNull();
+  if (!who) return NextResponse.json({ error: "Please log in." }, { status: 401 });
+  if (!isJobOwner(who, job)) return NextResponse.json({ error: "Job not found." }, { status: 404 });
   if (job.status !== "quoted") return NextResponse.json({ error: "This job is already paid or closed." }, { status: 409 });
   const quote = parseQuote(job.quoteJson);
   if (!quote) return NextResponse.json({ error: "Job has no quote." }, { status: 409 });

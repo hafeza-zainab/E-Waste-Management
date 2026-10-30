@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { rateLimitResponse } from "@/lib/security/rate-limit";
+import { db } from "@/lib/db";
 import { cleanupTourRun, currentTourRun, setTourCookies, startTourRun, tourEnabled } from "@/lib/tour/server";
 
 export const runtime = "nodejs";
@@ -14,5 +15,7 @@ export async function POST(req: Request) {
   if (previous) await cleanupTourRun(previous.id);
   const run = await startTourRun();
   setTourCookies(await cookies(), run.id);
-  return NextResponse.json({ runId: run.id });
+  // The seeded technician with a verified record, for the "proof" chapter (no role switcher to read it from any more).
+  const seeded = await db.technician.findFirst({ where: { repairs: { some: {} } }, orderBy: [{ rating: "desc" }, { name: "asc" }], select: { id: true } });
+  return NextResponse.json({ runId: run.id, seededTechId: seeded?.id ?? null });
 }

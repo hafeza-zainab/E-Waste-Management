@@ -2,6 +2,8 @@ import { PrismaClient } from "@prisma/client";
 import { computeImpact } from "../lib/impact/formulas";
 import { splitPayout } from "../lib/jobs/money";
 import { PARTS } from "../lib/agent/parts-data";
+import { ensureDemoAccounts } from "../lib/auth/demo";
+import { DEMO_OWNER_EMAIL, NO_PASSWORD } from "../lib/auth/constants";
 
 const db = new PrismaClient();
 
@@ -32,7 +34,8 @@ async function main() {
   // data keeps it. Use `npm run db:reset` (or SEED_RESET=true) to wipe and reseed locally.
   const reset = process.env.SEED_RESET === "true" || process.argv.includes("--reset");
   if (!reset && (await db.owner.count()) > 0) {
-    console.log("Database already has data: left untouched (parts refreshed). Use `npm run db:reset` to wipe and reseed.");
+    await ensureDemoAccounts(db); // links/refreshes the demo accounts on a migrated database; never touches other data
+    console.log("Database already has data: left untouched (parts and demo accounts refreshed). Use `npm run db:reset` to wipe and reseed.");
     return;
   }
 
@@ -49,17 +52,19 @@ async function main() {
     db.device.deleteMany(),
     db.technician.deleteMany(),
     db.owner.deleteMany(),
+    db.session.deleteMany(),
+    db.user.deleteMany(),
   ]);
 
-  const owner = await db.owner.create({ data: { name: "Demo Owner", email: "owner@reloop.demo" } });
+  const ownerUser = await db.user.create({ data: { name: "Demo Owner", email: DEMO_OWNER_EMAIL, passwordHash: NO_PASSWORD, role: "owner" } });
+  const owner = await db.owner.create({ data: { name: "Demo Owner", email: DEMO_OWNER_EMAIL, userId: ownerUser.id } });
 
   const techs = [];
   for (const t of TECHS) {
-    techs.push(
-      await db.technician.create({
-        data: { ...t, paypalEmail: `${t.name.split(" ")[0].toLowerCase()}@personal.example.com` },
-      }),
-    );
+    const first = t.name.split(" ")[0].toLowerCase();
+    // Accounts with an unusable password; ensureDemoAccounts() below gives the demo technician a real one.
+    const user = await db.user.create({ data: { name: t.name, email: `tech-${first}@reloop.invalid`, passwordHash: NO_PASSWORD, role: "technician" } });
+    techs.push(await db.technician.create({ data: { ...t, userId: user.id, paypalEmail: `${first}@personal.example.com` } }));
   }
 
   const devices = [];
@@ -122,6 +127,7 @@ async function main() {
     ],
   });
 
+  await ensureDemoAccounts(db);
   console.log(`Seeded: ${techs.length} technicians, ${devices.length} devices, ${history.length} completed jobs, 3 donations.`);
 }
 

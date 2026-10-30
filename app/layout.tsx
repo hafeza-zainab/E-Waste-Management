@@ -31,7 +31,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <DemoBanner />
         <SiteHeader />
         <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
-        {showGuide && <DemoGuide buyerEmail={process.env.NEXT_PUBLIC_DEMO_BUYER_EMAIL} buyerNote={process.env.NEXT_PUBLIC_DEMO_BUYER_NOTE} tourEnabled={process.env.DEMO_ACTIONS === "true"} />}
+        {showGuide && <DemoGuide buyerEmail={process.env.NEXT_PUBLIC_DEMO_BUYER_EMAIL} buyerNote={process.env.NEXT_PUBLIC_DEMO_BUYER_NOTE} ownerEmail={process.env.NEXT_PUBLIC_DEMO_OWNER_EMAIL} techEmail={process.env.NEXT_PUBLIC_DEMO_TECH_EMAIL} passwordNote={process.env.NEXT_PUBLIC_DEMO_PASSWORD_NOTE} tourEnabled={process.env.DEMO_ACTIONS === "true"} />}
         <footer className="border-t border-border px-4 py-6 text-center text-sm text-muted">
           ReLoop · sandbox demo, no real money moves · MIT licensed · built for the PayPal AI Hackathon
         </footer>

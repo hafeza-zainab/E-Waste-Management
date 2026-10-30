@@ -10,7 +10,7 @@ export type Step =
   | { t: "say"; cap: string; target: string; ms: number; optional?: boolean }
   | { t: "click"; target: string; cap?: string; ms?: number; optional?: boolean }
   | { t: "type"; target: string; text: string; cap: string }
-  | { t: "select"; target: string; value: "owner" | "technician" | "$techId" | "$seededTech"; cap?: string }
+  | { t: "role"; role: "owner" | "technician"; cap: string; target: string } // switches the TOUR-ONLY identity overlay; never the real session
   | { t: "upload"; target: string; url: string; cap: string }
   | { t: "wait"; target: string; timeoutMs?: number }
   | { t: "nav"; to: "/" | "$jobPath" | "$seededTechPath" }
@@ -30,7 +30,22 @@ export const SAMPLE_PROOF_URL = "/tour/sample-proof.png";
 export const PROOF_NOTES = "Replaced the cracked display and tested touch, brightness and the camera.";
 const sec = (n: number) => n * 1000;
 
-export const CHAPTERS: Chapter[] = [
+/** Where the visitor goes when the tour ends or is stopped. "/" additionally promises the real session is left exactly as it was. */
+export type ReturnTo = "/" | "/signup";
+export const RETURN_PATHS: readonly ReturnTo[] = ["/", "/signup"];
+
+/** Extra chapter that only runs when the tour was started from the signup page. It only talks: it never types into or submits the form. */
+const ACCOUNTS_CHAPTER: Chapter = {
+  id: "accounts",
+  title: "Accounts",
+  steps: [
+    { t: "say", cap: "accounts.form", target: "signup-form", ms: sec(7) },
+    { t: "say", cap: "accounts.roles", target: "signup-roles", ms: sec(9) },
+    { t: "say", cap: "accounts.guest", target: "guest-button", ms: sec(6) },
+  ],
+};
+
+const BASE_CHAPTERS: Chapter[] = [
   {
     id: "problem",
     title: "The problem",
@@ -77,9 +92,7 @@ export const CHAPTERS: Chapter[] = [
     title: "Technician side",
     needs: ["job", "paid"],
     steps: [
-      { t: "select", target: "role-select", value: "technician", cap: "technician.switch" },
-      { t: "select", target: "tech-select", value: "$techId" },
-      { t: "click", target: "role-switch", ms: sec(1) },
+      { t: "role", role: "technician", target: "tour-bar", cap: "technician.switch" },
       { t: "wait", target: "nav-technician" },
       { t: "click", target: "nav-technician" },
       { t: "wait", target: "accept@job", timeoutMs: sec(20) },
@@ -98,8 +111,7 @@ export const CHAPTERS: Chapter[] = [
     title: "Confirm and pay out",
     needs: ["job", "paid", "completed"],
     steps: [
-      { t: "select", target: "role-select", value: "owner", cap: "payout.owner" },
-      { t: "click", target: "role-switch", ms: sec(1) },
+      { t: "role", role: "owner", target: "tour-bar", cap: "payout.owner" },
       { t: "wait", target: "nav-technician" },
       { t: "nav", to: "$jobPath" },
       { t: "wait", target: "confirm", timeoutMs: sec(20) },
@@ -147,6 +159,10 @@ export const CHAPTERS: Chapter[] = [
     steps: [{ t: "end", cap: "turn.end" }],
   },
 ];
+
+export const chaptersFor = (returnTo: ReturnTo): Chapter[] => (returnTo === "/signup" ? [ACCOUNTS_CHAPTER, ...BASE_CHAPTERS] : BASE_CHAPTERS);
+/** Every chapter of every entry point (used by tests). */
+export const CHAPTERS: Chapter[] = chaptersFor("/signup");
 
 export const captionFor = (key: string): string => {
   const [group, name] = key.split(".");

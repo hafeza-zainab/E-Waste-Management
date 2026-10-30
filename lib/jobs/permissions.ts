@@ -1,6 +1,7 @@
 import type { JobStatus } from "./state-machine";
 
-export type Principal = { kind: "owner"; ownerId: string } | { kind: "technician"; techId: string };
+/** `tourRunId` is set only for the guided-demo identity overlay: it can reach records of that run and nothing else. */
+export type Principal = { kind: "owner"; ownerId: string; tourRunId?: string } | { kind: "technician"; techId: string; tourRunId?: string };
 
 export type Action =
   | "accept"
@@ -47,11 +48,20 @@ export interface JobFacts {
   status: string;
   technicianId: string | null;
   ownerId: string;
+  isTour?: boolean;
+  tourRunId?: string | null;
+}
+
+/** Tour jobs are reachable only by the tour identity of their own run, and the tour identity only reaches tour jobs. */
+export function tourBoundaryOk(who: Principal, job: { isTour?: boolean; tourRunId?: string | null }): boolean {
+  if (!who.tourRunId && !job.isTour) return true;
+  return !!job.isTour && !!who.tourRunId && who.tourRunId === job.tourRunId;
 }
 
 /** Server-side authorization for every lifecycle action. Identity comes from the session, never from the request body. */
 export function checkPermission(action: Action, who: Principal, job: JobFacts): void {
   const rule = ACTION_RULES[action];
+  if (!tourBoundaryOk(who, job)) throw new ActionError("You are not part of this job.", "forbidden");
   const isOwner = who.kind === "owner" && who.ownerId === job.ownerId;
   const isAssignedTech = who.kind === "technician" && !!job.technicianId && who.techId === job.technicianId;
   const allowed = rule.who === "owner" ? isOwner : rule.who === "technician" ? isAssignedTech : isOwner || isAssignedTech;

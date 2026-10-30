@@ -67,11 +67,27 @@ More detail: [docs/architecture.md](docs/architecture.md).
 - **Repair agent**: Claude tool-use loop (max 10 tool calls, 90 s timeout) over deterministic tools; goal text, photos and tool results are treated as untrusted data; budget and approval are enforced server-side.
 - **Scripted fallback**: with `DEMO_MODE=true` or no API key, diagnosis uses fixtures and the agent plays a clearly labelled *scripted demo run* of three scenarios **through the same real tools and checks**. A daily cap on live calls (`AI_DAILY_CALL_CAP`) falls back to this with a notice.
 
-## Guided demo
+## Accounts, guest mode and the two demo buttons
 
-On the hosted demo (or any run with `DEMO_ACTIONS=true`) the landing page has **"Run guided demo (about 3 minutes)"**. It operates the real app, with a caption bar explaining each step: the agent run and budget block, the approval gate, a technician accepting and completing a job with a proof photo, the owner confirming, the payout, the safety stop, and the verified profile, donation and impact pages. Controls: pause, skip chapter, speed 1x/1.5x/2x, stop (Esc).
+**Accounts.** Sign up at `/signup` as an **Owner** (has a broken device) or a **Technician** (skills, area and a PayPal *sandbox* email for payouts). Log in at `/login`. Passwords are 10 to 128 characters and are hashed with scrypt; sessions are server-side with a 7-day sliding expiry. This is a sandbox: **use a throwaway password**. See [SECURITY.md](SECURITY.md).
 
-What it simulates: money. The tour **never calls PayPal** (no order, authorize, capture, payout or webhook; blocked in the browser and on the server). Its payment, capture and payout are recorded as `TOUR-SIMULATED` and tagged "Tour simulation" in the UI, the AI is always the scripted run, and everything it creates is excluded from impact totals, earnings, public profiles, CVs and the donation fund and is deleted when the tour ends (or on the next page load if it was interrupted). The real sandbox checkout is untouched: try it yourself with the test buyer in the Demo guide. Details: [docs/DEMO_TOUR_NOTES.md](docs/DEMO_TOUR_NOTES.md).
+**Continue as guest (demo).** Judges do not have to sign up. The button on `/signup` and `/login` creates a real, temporary owner account (named like "Guest 4821") with a normal session, so every feature works. Guests and their data are deleted after 24 hours.
+
+**Demo accounts** (seeded; shown in the *Demo guide* drawer):
+
+| Role | Email | Password |
+|---|---|---|
+| Owner | `owner@reloop.demo` | `reloop-demo-2026` |
+| Technician (Aisha Rahman) | `tech@reloop.demo` | `reloop-demo-2026` |
+
+The password is public by design (the accounts hold demo data only). To change it, set `DEMO_ACCOUNT_PASSWORD` (at least 10 characters) and restart. The other seeded technicians have accounts with no usable password.
+
+**Guided demo (two buttons, same tour).** On the hosted demo (or any run with `DEMO_ACTIONS=true`) there is **"Run guided demo (about 3 minutes)"** on the home page and on the signup page. It operates the real app, with a caption bar explaining each step: the agent run and budget block, the approval gate, a technician accepting and completing a job with a proof photo, the owner confirming, the payout, the safety stop, and the verified profile, donation and impact pages. Controls: pause, skip chapter, speed 1x/1.5x/2x, stop (Esc).
+
+- **On `/signup`:** adds a short opening chapter that points at the signup form and the Owner / Technician choice and explains each role. It never types into or submits the form and never creates a user. When the tour finishes **or is stopped**, you are sent back to `/signup`.
+- **On `/` (home):** the same tour, and afterwards you stay exactly as you were: a logged-in user is still logged in (same session cookie, untouched), a guest is still the same guest, a logged-out visitor is still logged out, and you are back on `/`. Your own devices and jobs are not shown in the tour and are never modified or counted.
+
+During a tour the caption bar says **"Viewing as: Technician (tour)"** or **"Owner (tour)"** when the tour switches sides. That is a separate, tour-only identity (see [docs/DEMO_TOUR_NOTES.md](docs/DEMO_TOUR_NOTES.md)); it never reads or changes your real login. Everything the tour creates is labelled, excluded from totals and deleted when it ends.
 
 ## What is simulated in demo mode
 
@@ -115,15 +131,17 @@ PayPal authorizations have a 3-day honor period and are valid 29 days. The app r
 
 ## Verification (what was actually run)
 
-From a fresh clone in a temp folder, following these commands: `npm run setup` (migrations + seed OK), `npm test` (all pass), lint clean, `npm run build` OK, `next start` in production mode. In that production build, with a real browser (Microsoft Edge via Playwright) at 360/412/768/1280 px: no horizontal overflow on landing, diagnosis, job, technician, agent, donate, impact, tech profile and 404; no serious/critical axe-core accessibility violations; a keyboard-only run of the agent flow (example, approve, pay) passed; the dev "Simulate buyer approval" is absent and the startup self-check logged and ignored `PAYPAL_SIMULATE_APPROVAL=true`; with sandbox credentials the PayPal SDK loads under the CSP and both the popup and the in-tab redirect reach `sandbox.paypal.com/checkoutnow`. Repeat with `BASE_URL=http://localhost:3200 npm run verify:ui`. Not run: Lighthouse (the tool produced no result with Edge), a full real-buyer approval, the hosted Render deployment. See [docs/judge-checklist.md](docs/judge-checklist.md).
+From a fresh clone in a temp folder, following these commands: `npm run setup` (migrations + seed OK), `npm test` (all pass), lint clean, `npm run build` OK, `next start` in production mode. In that production build, with a real browser (Microsoft Edge via Playwright) at 360/412/768/1280 px: no horizontal overflow on landing, diagnosis, job, technician, agent, donate, impact, tech profile and 404; no serious/critical axe-core accessibility violations; a keyboard-only run of the agent flow (example, approve, pay) passed; the dev "Simulate buyer approval" is absent and the startup self-check logged and ignored `PAYPAL_SIMULATE_APPROVAL=true`; with sandbox credentials the PayPal SDK loads under the CSP and both the popup and the in-tab redirect reach `sandbox.paypal.com/checkoutnow`. Repeat with `BASE_URL=http://localhost:3200 npm run verify:ui` (it logs in with the demo accounts, then also runs `npm run verify:tour` and `npm run verify:auth`, each on its own throwaway server). Not run: Lighthouse (the tool produced no result with Edge), a full real-buyer approval, the hosted Render deployment. See [docs/judge-checklist.md](docs/judge-checklist.md).
 
 ## Testing
 
-`npm test` runs ~160 Vitest tests: state machine and per-action role enforcement, capture/payout idempotency and expiry, webhooks, donations and certificate gating, PDFs, impact totals, the agent (tool schemas, 10-call cap, timeout, approval-token rules, budget, prompt injection, scripted traces), rate limiting, startup safety, CSP headers and colour contrast.
+`npm test` runs ~260 Vitest tests: accounts (password hashing, sessions, cookie flags, CSRF origin checks, rate limits, open-redirect protection, guests and their purge, transactional technician signup), an authorization matrix across owner / other owner / technician / other technician / guest / anonymous for every page, route and action that returns or changes user data, the tour identity overlay, the Phase 7 to accounts migration, state machine and per-action role enforcement, capture/payout idempotency and expiry, webhooks, donations and certificate gating, PDFs, impact totals, the agent (tool schemas, 10-call cap, timeout, approval-token rules, budget, prompt injection, scripted traces), rate limiting, startup safety, CSP headers and colour contrast.
 
 ## Known limitations
 
-- **No real authentication**: the Owner/Technician switch is a cookie for demo purposes ([SECURITY.md](SECURITY.md)).
+- **No email verification and no password reset.** Anyone can sign up with any email address, and a forgotten password cannot be recovered (create a new account or use guest mode). Signup says when an email is already taken, which reveals that it exists (accepted trade-off for a demo; login never reveals it).
+- **Sandbox data resets on redeploy.** Accounts, devices, jobs and uploaded photos live in SQLite on an ephemeral disk. Use a throwaway password.
+- Guest accounts cannot be upgraded to a full account yet; "Create an account to keep your data" just links to signup.
 - SQLite on an ephemeral disk: the hosted demo's data and uploaded photos reset on redeploy or restart.
 - Rate limits and the daily AI cap are in memory (one instance only).
 - Impact figures are **illustrative estimates with no verified sources** (labelled in the UI).
@@ -134,7 +152,7 @@ From a fresh clone in a temp folder, following these commands: `npm run setup` (
 
 ## Future work
 
-Real accounts and KYC for technicians, a shared store for rate limits, Postgres, dispute handling, real recycler and charity integrations, sourced impact factors.
+Email verification, password reset and guest-to-account upgrade, KYC for technicians, a shared store for rate limits, Postgres, dispute handling, real recycler and charity integrations, sourced impact factors.
 
 ## License
 

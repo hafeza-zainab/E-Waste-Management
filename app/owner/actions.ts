@@ -4,7 +4,8 @@ import { db } from "@/lib/db";
 import { diagnose, generateGuide } from "@/lib/ai/diagnosis";
 import { DiagnosisSchema, IntakeSchema } from "@/lib/ai/schemas";
 import { createQuotedJob } from "@/lib/jobs/service";
-import { getDemoOwner } from "@/lib/session";
+import { getPrincipalOrNull } from "@/lib/session";
+import { loadOwnedDevice } from "@/lib/auth/access";
 import { saveImageUpload } from "@/lib/uploads";
 import { currentTourRunId } from "@/lib/tour/server";
 import { SCENARIO_INTAKE, type ScenarioKey } from "@/lib/ai/fixtures";
@@ -42,10 +43,12 @@ export async function createDevice(formData: FormData) {
     const photo = await saveImageUpload(formData.get("photo"));
     const tourRunId = await currentTourRunId(); // guided demo: scripted diagnosis only, record tagged for cleanup
     const result = await diagnose(intake, photo ? { mediaType: photo.mediaType, base64: photo.base64 } : undefined, { scripted: !!tourRunId });
-    const owner = await getDemoOwner();
+    const who = await getPrincipalOrNull();
+    if (!who) throw new Error("Please log in or continue as a guest first.");
+    if (who.kind !== "owner") throw new Error("Only device owners can diagnose devices.");
     const device = await db.device.create({
       data: {
-        ownerId: owner.id,
+        ownerId: who.ownerId,
         type: intake.type,
         brand: intake.brand,
         model: intake.model,
@@ -71,6 +74,8 @@ export async function createQuote(formData: FormData) {
   let jobId: string;
   try {
     await assertRate("action");
+    const who = await getPrincipalOrNull();
+    if (!who || !(await loadOwnedDevice(who, deviceId))) throw new Error("Device not found.");
     jobId = (await createQuotedJob(deviceId, pickup)).id;
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Could not build a quote.";
@@ -84,6 +89,8 @@ export async function bookRecycling(formData: FormData) {
   let msg: string;
   try {
     await assertRate("action");
+    const who = await getPrincipalOrNull();
+    if (!who || !(await loadOwnedDevice(who, deviceId))) throw new PickupError("Device not found.");
     await bookPickup({ deviceId, address: String(formData.get("address") ?? ""), pickupDate: String(formData.get("pickupDate") ?? "") });
     msg = "ok=" + encodeURIComponent("Pickup booked with the demo recycling partner.");
   } catch (e) {
@@ -97,6 +104,8 @@ export async function advanceRecycling(formData: FormData) {
   const deviceId = String(formData.get("deviceId") ?? "");
   let msg: string;
   try {
+    const who = await getPrincipalOrNull();
+    if (!who || !(await loadOwnedDevice(who, deviceId))) throw new PickupError("Device not found.");
     const s = await advancePickup(deviceId);
     msg = "ok=" + encodeURIComponent(`Demo recycler marked it ${s}.`);
   } catch (e) {
@@ -107,7 +116,8 @@ export async function advanceRecycling(formData: FormData) {
 
 export async function createGuide(formData: FormData) {
   const id = String(formData.get("deviceId") ?? "");
-  const device = await db.device.findUnique({ where: { id } });
+  const who = await getPrincipalOrNull();
+  const device = who ? await loadOwnedDevice(who, id) : null;
   if (!device?.diagnosisJson) redirect("/owner");
   const diagnosis = DiagnosisSchema.parse(JSON.parse(device.diagnosisJson));
   let error: string | null = null;
