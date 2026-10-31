@@ -50,3 +50,8 @@ next-env.d.ts
 # recorded demo clips
 /docs/clips/*
 !/docs/clips/.gitkeep
+
+# Local submission inputs, outputs and temporary media
+/demo/*
+!/demo/cutlist.example.json
+!/demo/README.md

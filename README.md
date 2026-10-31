@@ -1,5 +1,7 @@
 # ReLoop
 
+Voiceover is AI-generated.
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-teal.svg)](LICENSE)
 
 **An AI repair agent that finds a safe, in-budget fix for a broken device, lets only *you* approve it, holds the payment in PayPal, and pays the technician only after you confirm the repair.**
