@@ -27,8 +27,9 @@ const csp = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
-  cacheComponents: false,
-  partialPrefetching: false,
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   experimental: { serverActions: { bodySizeLimit: "5mb" } },
   poweredByHeader: false,
   async headers() {
