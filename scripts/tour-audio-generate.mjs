@@ -5,10 +5,19 @@ import path from 'node:path';
 import { checkTools, probe, root, run } from './media-utils.mjs';
 
 async function main() {
-  checkTools();
-  const engine = process.env.TTS_ENGINE;
+  const engine = process.env.TTS_ENGINE || (process.platform === 'win32' ? 'windows' : undefined);
   const voice = process.env.TTS_VOICE;
-  if (!['piper', 'elevenlabs'].includes(engine) || !voice) throw new Error('Set TTS_ENGINE=piper|elevenlabs and TTS_VOICE (Piper model path or ElevenLabs voice ID).');
+  const windowsSpeech = (extra = {}) => run('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(root, 'scripts/windows-speech.ps1')], { env: { ...process.env, ...extra } });
+  if (process.argv.includes('--list-voices')) {
+    if (process.platform !== 'win32') throw new Error('--list-voices requires Windows System.Speech.');
+    console.log(windowsSpeech({ RELOOP_SPEECH_LIST: '1' }).trim());
+    return;
+  }
+  checkTools();
+  if (!['windows', 'piper', 'elevenlabs'].includes(engine) || (engine !== 'windows' && !voice)) throw new Error('Set TTS_ENGINE=windows|piper|elevenlabs and TTS_VOICE (installed Windows voice, Piper model path or ElevenLabs voice ID).');
+  if (engine === 'windows' && process.platform !== 'win32') throw new Error('The windows TTS engine requires Windows.');
+  const rate = Number(process.env.TTS_RATE ?? -1);
+  if (engine === 'windows' && (!Number.isInteger(rate) || rate < -3 || rate > 3)) throw new Error('TTS_RATE must be an integer from -3 to 3 (default -1).');
   if (engine === 'elevenlabs' && !process.env.ELEVENLABS_API_KEY) throw new Error('Set ELEVENLABS_API_KEY in your environment.');
   const captions = JSON.parse(await readFile(path.join(root, 'docs/tour-captions.json'), 'utf8'));
   const { CHAPTERS } = await import('../lib/tour/script.ts');
@@ -31,7 +40,11 @@ async function main() {
       const skipped = existsSync(output) && !force;
       if (!skipped) {
         const source = path.join(temp, 'source.wav');
-        if (engine === 'piper') {
+        if (engine === 'windows') {
+          const input = path.join(temp, 'input.txt');
+          await writeFile(input, task.text, 'utf8');
+          windowsSpeech({ RELOOP_SPEECH_LIST: '0', RELOOP_SPEECH_INPUT: input, RELOOP_SPEECH_OUTPUT: source, RELOOP_SPEECH_RATE: String(rate) });
+        } else if (engine === 'piper') {
           // Suppress provider output: it is never needed in a log containing user text.
           const input = path.join(temp, 'input.txt');
           await writeFile(input, task.text);

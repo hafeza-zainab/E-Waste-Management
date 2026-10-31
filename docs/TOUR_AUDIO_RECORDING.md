@@ -4,6 +4,12 @@ Requires Node (the repo's existing tsx runner), ffmpeg and ffprobe on PATH. No n
 
 ## Offline: Piper
 
+## Offline default on Windows: System.Speech
+
+When `TTS_ENGINE` is unset on Windows, the generator uses the built-in offline `System.Speech` synthesizer through Windows PowerShell. No key, download or Python installation is needed. List enabled installed voices with `npm run tour:audio:generate -- --list-voices`. Set `TTS_VOICE` to an exact listed name, or leave it unset to use the system default. Set `TTS_RATE` to an integer from -3 to 3 (default -1). Run `npm run tour:audio:generate` to synthesize each step to a temporary WAV and convert it to normalized mono 96 kbps MP3. Use `--force` to replace existing audio. This engine uses the installed Windows voice terms; retain the AI-generated voice disclosure. Listen to the result and check pronunciation and timing.
+
+## Piper setup
+
 Install Piper in a separate Python virtual environment with `python -m pip install piper-tts` using a supported Windows Python version. Prefer a binary wheel; if installation requires a troublesome native build, use the hosted option rather than modifying the app environment. Download one single-speaker `.onnx` voice and its matching `.onnx.json` outside the repo, checking its model card first. Add the venv Scripts directory to PATH or set `PIPER_BIN` to its `piper.exe`.
 
 PowerShell:
