@@ -1,0 +1,4 @@
+[
+  { "id": "guided", "file": "guided.mp4", "start": 0, "end": 5, "speed": 1.25, "label": "Guided demo" },
+  { "id": "real", "file": "real.mp4", "start": 0, "end": 5, "speed": 1, "label": "PayPal sandbox" }
+]

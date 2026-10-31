@@ -1,0 +1,7 @@
+I sign in to ReLoop as the device owner.
+I approve the repair quote and open the PayPal sandbox checkout.
+The sandbox buyer authorizes the payment, which stays held until the owner confirms the repair.
+The technician completes the work and submits the repair proof.
+The owner confirms the repair, triggering payment capture.
+ReLoop requests the payout to the technician after capture.
+The authorization, capture, and payout IDs on screen let us trace this sandbox transaction.
