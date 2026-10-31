@@ -1,0 +1,357 @@
+{
+  "engine": "windows",
+  "steps": [
+    {
+      "id": "accounts.form",
+      "text": "This is the real signup form. The guided demo only points at it: it never types into it and never creates an account.",
+      "onScreenSeconds": 7,
+      "file": "public/tour/audio/accounts.form.mp3",
+      "duration": 9.027891,
+      "textVerified": true
+    },
+    {
+      "id": "accounts.roles",
+      "text": "First choice: Owner or Technician. An owner describes a broken device, approves a quote and confirms the repair. A technician accepts paid jobs, uploads proof and gets paid after the owner confirms.",
+      "onScreenSeconds": 9,
+      "file": "public/tour/audio/accounts.roles.mp3",
+      "duration": 16.102041,
+      "textVerified": true
+    },
+    {
+      "id": "accounts.guest",
+      "text": "No sign-up needed to explore: Continue as guest creates a temporary demo account that is deleted after 24 hours.",
+      "onScreenSeconds": 6,
+      "file": "public/tour/audio/accounts.guest.mp3",
+      "duration": 8.867891,
+      "textVerified": true
+    },
+    {
+      "id": "problem.problem",
+      "text": "Most broken devices become e-waste, not because they cannot be fixed, but because people cannot tell if a repair is safe, cannot trust a stranger, and cannot pay safely.",
+      "onScreenSeconds": 7,
+      "file": "public/tour/audio/problem.problem.mp3",
+      "duration": 12.85746,
+      "textVerified": true
+    },
+    {
+      "id": "problem.flow",
+      "text": "ReLoop turns that into four steps: describe the problem, get a safe priced plan, approve it while PayPal holds the money, and pay the technician only after the repair is verified.",
+      "onScreenSeconds": 7,
+      "file": "public/tour/audio/problem.flow.mp3",
+      "duration": 13.312336,
+      "textVerified": true
+    },
+    {
+      "id": "agent.open",
+      "text": "First, the repair agent. Opening the real Agent page from the menu.",
+      "onScreenSeconds": null,
+      "file": "public/tour/audio/agent.open.mp3",
+      "duration": 6.343492,
+      "textVerified": true
+    },
+    {
+      "id": "agent.goal",
+      "text": "Typing a goal, just as a person would: a cracked Galaxy A52 screen, fixed under $60.",
+      "onScreenSeconds": null,
+      "file": "public/tour/audio/agent.goal.mp3",
+      "duration": 8.838095,
+      "textVerified": true
+    },
+    {
+      "id": "agent.budget",
+      "text": "And the budget: $60. The agent is not able to go over it.",
+      "onScreenSeconds": null,
+      "file": "public/tour/audio/agent.budget.mp3",
+      "duration": 6.468707,
+      "textVerified": true
+    },
+    {
+      "id": "agent.start",
+      "text": "Starting the agent. This is a scripted demo run: no AI key is used and nothing leaves this page.",
+      "onScreenSeconds": 1.5,
+      "file": "public/tour/audio/agent.start.mp3",
+      "duration": 8.183175,
+      "textVerified": true
+    },
+    {
+      "id": "agent.trace",
+      "text": "Every line here is a real tool step: diagnose, safety check, find parts, find a technician, build a quote.",
+      "onScreenSeconds": 6,
+      "file": "public/tour/audio/agent.trace.mp3",
+      "duration": 9.918186,
+      "textVerified": true
+    },
+    {
+      "id": "agent.blocked",
+      "text": "The first quote went over the $60 budget, so the code rejected it. The agent then found a cheaper compatible part.",
+      "onScreenSeconds": 7,
+      "file": "public/tour/audio/agent.blocked.mp3",
+      "duration": 9.348073,
+      "textVerified": true
+    },
+    {
+      "id": "agent.quote",
+      "text": "Here is the quote, within budget and itemised. The agent cannot pay for it.",
+      "onScreenSeconds": 7,
+      "file": "public/tour/audio/agent.quote.mp3",
+      "duration": 6.398503,
+      "textVerified": true
+    },
+    {
+      "id": "control.gate",
+      "text": "You stay in control. The agent has no way to pay. Only this Approve button can unlock payment, and it creates a single-use approval token.",
+      "onScreenSeconds": 8,
+      "file": "public/tour/audio/control.gate.mp3",
+      "duration": 11.457823,
+      "textVerified": true
+    },
+    {
+      "id": "control.approve",
+      "text": "Approving the quote now.",
+      "onScreenSeconds": 1,
+      "file": "public/tour/audio/control.approve.mp3",
+      "duration": 2.224218,
+      "textVerified": true
+    },
+    {
+      "id": "control.paypal",
+      "text": "Here is where PayPal's checkout button would appear. The guided demo never loads or calls PayPal. You can try the real sandbox checkout afterwards, with the test buyer in the Demo guide.",
+      "onScreenSeconds": 9,
+      "file": "public/tour/audio/control.paypal.mp3",
+      "duration": 14.15229,
+      "textVerified": true
+    },
+    {
+      "id": "paypal-slate",
+      "text": "Now showing how PayPal works here.",
+      "onScreenSeconds": 3,
+      "file": "public/tour/audio/paypal-slate.mp3",
+      "duration": 3.013968,
+      "textVerified": true
+    },
+    {
+      "id": "paypal-slate-end",
+      "text": "Back in the guided demo.",
+      "onScreenSeconds": 1.5,
+      "file": "public/tour/audio/paypal-slate-end.mp3",
+      "duration": 2.349206,
+      "textVerified": true
+    },
+    {
+      "id": "control.tourpay",
+      "text": "A tour-only step, labelled TOUR-SIMULATED: it marks the money as held without touching PayPal.",
+      "onScreenSeconds": 3,
+      "file": "public/tour/audio/control.tourpay.mp3",
+      "duration": 7.348345,
+      "textVerified": true
+    },
+    {
+      "id": "control.held",
+      "text": "The payment now shows as held (Tour simulation). Opening the job page.",
+      "onScreenSeconds": 2.5,
+      "file": "public/tour/audio/control.held.mp3",
+      "duration": 6.723583,
+      "textVerified": true
+    },
+    {
+      "id": "control.job",
+      "text": "On the job page, the timeline shows the payment held, tagged Tour simulation.",
+      "onScreenSeconds": 5,
+      "file": "public/tour/audio/control.job.mp3",
+      "duration": 6.568617,
+      "textVerified": true
+    },
+    {
+      "id": "technician.switch",
+      "text": "Now the other side. The guided demo switches its own tour-only identity to the technician assigned to this job. Your real login is not touched.",
+      "onScreenSeconds": null,
+      "file": "public/tour/audio/technician.switch.mp3",
+      "duration": 10.952698,
+      "textVerified": true
+    },
+    {
+      "id": "technician.board",
+      "text": "This is the technician's dashboard, with the paid job waiting.",
+      "onScreenSeconds": 3,
+      "file": "public/tour/audio/technician.board.mp3",
+      "duration": 4.783673,
+      "textVerified": true
+    },
+    {
+      "id": "technician.accept",
+      "text": "The technician accepts the job.",
+      "onScreenSeconds": 1,
+      "file": "public/tour/audio/technician.accept.mp3",
+      "duration": 2.734059,
+      "textVerified": true
+    },
+    {
+      "id": "technician.start",
+      "text": "And starts the repair.",
+      "onScreenSeconds": 1,
+      "file": "public/tour/audio/technician.start.mp3",
+      "duration": 2.224172,
+      "textVerified": true
+    },
+    {
+      "id": "technician.photo",
+      "text": "Uploading the sample proof photo that ships with this demo.",
+      "onScreenSeconds": null,
+      "file": "public/tour/audio/technician.photo.mp3",
+      "duration": 4.278821,
+      "textVerified": true
+    },
+    {
+      "id": "technician.notes",
+      "text": "Adding a short note about the work done.",
+      "onScreenSeconds": null,
+      "file": "public/tour/audio/technician.notes.mp3",
+      "duration": 3.099138,
+      "textVerified": true
+    },
+    {
+      "id": "technician.complete",
+      "text": "Marking the repair complete. The owner will be asked to confirm.",
+      "onScreenSeconds": 1.5,
+      "file": "public/tour/audio/technician.complete.mp3",
+      "duration": 5.448662,
+      "textVerified": true
+    },
+    {
+      "id": "payout.owner",
+      "text": "Back to the owner, again with the tour-only identity.",
+      "onScreenSeconds": null,
+      "file": "public/tour/audio/payout.owner.mp3",
+      "duration": 4.373787,
+      "textVerified": true
+    },
+    {
+      "id": "payout.open",
+      "text": "Opening the job to confirm the repair.",
+      "onScreenSeconds": 3,
+      "file": "public/tour/audio/payout.open.mp3",
+      "duration": 3.0839,
+      "textVerified": true
+    },
+    {
+      "id": "payout.confirm",
+      "text": "The owner confirms the repair is done. Only now would money move.",
+      "onScreenSeconds": 2,
+      "file": "public/tour/audio/payout.confirm.mp3",
+      "duration": 5.633696,
+      "textVerified": true
+    },
+    {
+      "id": "payout.paid",
+      "text": "Payout released: the technician gets 90% and the platform fee is 10%. Tagged Tour simulation. In the real flow this is the PayPal capture and the Payouts API.",
+      "onScreenSeconds": 10,
+      "file": "public/tour/audio/payout.paid.mp3",
+      "duration": 14.077596,
+      "textVerified": true
+    },
+    {
+      "id": "payout.timeline",
+      "text": "The timeline now reaches Payout released.",
+      "onScreenSeconds": 4,
+      "file": "public/tour/audio/payout.timeline.mp3",
+      "duration": 3.429161,
+      "textVerified": true
+    },
+    {
+      "id": "safety.home",
+      "text": "Now a dangerous case. Back on the home page, with the swollen laptop battery scenario.",
+      "onScreenSeconds": 3,
+      "file": "public/tour/audio/safety.home.mp3",
+      "duration": 7.643537,
+      "textVerified": true
+    },
+    {
+      "id": "safety.scenario",
+      "text": "Opening the swollen battery scenario.",
+      "onScreenSeconds": 1,
+      "file": "public/tour/audio/safety.scenario.mp3",
+      "duration": 3.143991,
+      "textVerified": true
+    },
+    {
+      "id": "safety.diagnose",
+      "text": "Running the diagnosis on this scripted example.",
+      "onScreenSeconds": 1,
+      "file": "public/tour/audio/safety.diagnose.mp3",
+      "duration": 3.7839,
+      "textVerified": true
+    },
+    {
+      "id": "safety.stop",
+      "text": "A red safety stop. A swollen battery can ignite, so DIY is blocked.",
+      "onScreenSeconds": 6,
+      "file": "public/tour/audio/safety.stop.mp3",
+      "duration": 7.158617,
+      "textVerified": true
+    },
+    {
+      "id": "safety.diy",
+      "text": "DIY is not offered for this device. This rule is enforced in code, not left to the AI.",
+      "onScreenSeconds": 5,
+      "file": "public/tour/audio/safety.diy.mp3",
+      "duration": 7.723175,
+      "textVerified": true
+    },
+    {
+      "id": "proof.profile",
+      "text": "A seeded technician's public profile. A repair is listed here only after the owner confirmed it and the payout was made.",
+      "onScreenSeconds": 6,
+      "file": "public/tour/audio/proof.profile.mp3",
+      "duration": 8.782948,
+      "textVerified": true
+    },
+    {
+      "id": "proof.cv",
+      "text": "Each technician can download a Verified Repair CV. We will not download it during the tour.",
+      "onScreenSeconds": 4,
+      "file": "public/tour/audio/proof.cv.mp3",
+      "duration": 7.233288,
+      "textVerified": true
+    },
+    {
+      "id": "proof.donate",
+      "text": "The donation fund. Everything the tour created is excluded from this total.",
+      "onScreenSeconds": 4,
+      "file": "public/tour/audio/proof.donate.mp3",
+      "duration": 6.17356,
+      "textVerified": true
+    },
+    {
+      "id": "proof.donateNote",
+      "text": "PayPal's donate button is not loaded during the tour, and this note says so.",
+      "onScreenSeconds": 4,
+      "file": "public/tour/audio/proof.donateNote.mp3",
+      "duration": 5.833651,
+      "textVerified": true
+    },
+    {
+      "id": "proof.impact",
+      "text": "The impact page counts real and seeded records only. Everything this tour created is excluded, and it is deleted when you finish.",
+      "onScreenSeconds": 7,
+      "file": "public/tour/audio/proof.impact.mp3",
+      "duration": 9.693016,
+      "textVerified": true
+    },
+    {
+      "id": "turn.end",
+      "text": "Your turn. Try the real sandbox checkout with the test buyer, or finish and go back to where you started.",
+      "onScreenSeconds": null,
+      "file": "public/tour/audio/turn.end.mp3",
+      "duration": 8.569229,
+      "textVerified": true
+    }
+  ],
+  "real": {
+    "id": "real",
+    "text": "I sign in to ReLoop as the device owner.\r\nI approve the repair quote and open the PayPal sandbox checkout.\r\nThe sandbox buyer authorizes the payment, which stays held until the owner confirms the repair.\r\nThe technician completes the work and submits the repair proof.\r\nThe owner confirms the repair, triggering payment capture.\r\nReLoop requests the payout to the technician after capture.\r\nThe authorization, capture, and payout IDs on screen let us trace this sandbox transaction.",
+    "onScreenSeconds": null,
+    "file": "demo/voiceover-real.mp3",
+    "duration": 35.973288,
+    "textVerified": true
+  }
+}

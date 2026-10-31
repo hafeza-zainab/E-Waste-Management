@@ -16,6 +16,7 @@ import os from "node:os";
 import path from "node:path";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright-core";
 import { PrismaClient } from "@prisma/client";
+import { mockTourAudio } from "./tour-audio-mock";
 
 const PORT = process.env.AUTH_PORT ?? "3420";
 const BASE = `http://localhost:${PORT}`;
@@ -69,6 +70,7 @@ async function main() {
     const seen = { requests: [] as string[], consoleErrors: [] as string[] };
     const newContext = async (width = 1280, height = 800) => {
       const ctx = await browser!.newContext({ viewport: { width, height } });
+      await mockTourAudio(ctx, 0.01);
       ctx.on("request", (r) => seen.requests.push(r.url()));
       ctx.on("page", (p) => {
         p.on("console", (m) => { if (m.type() === "error") seen.consoleErrors.push(m.text().slice(0, 200)); });

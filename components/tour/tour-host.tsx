@@ -12,17 +12,18 @@ const btn = `${base} border-white/40 text-white hover:bg-white/15`;
 const btnPrimary = `${base} border-amber-400 bg-amber-400 text-slate-950 hover:bg-amber-300`;
 
 /** Mounted once in the root layout so it survives client-side navigation. Hard reloads resume or clean up via bootstrap(). */
-export function TourHost() {
+export function TourHost({ slateHold }: { slateHold?: number }) {
   const router = useRouter();
   const v = useSyncExternalStore(tour.subscribe, tour.getView, tour.getServerView);
 
   useEffect(() => {
+    tour.setSlateHold(slateHold);
     tour.configure({ push: (p) => router.push(p), refresh: () => router.refresh(), notify: (m) => toast(m) });
     void tour.bootstrap();
     const onStart = (e: Event) => void tour.start(((e as CustomEvent<ReturnTo | undefined>).detail ?? "/") as ReturnTo);
     window.addEventListener(START_EVENT, onStart);
     return () => window.removeEventListener(START_EVENT, onStart);
-  }, [router]);
+  }, [router, slateHold]);
 
   if (v.status === "idle") return null;
   const active = v.status === "running" || v.status === "paused";
@@ -31,6 +32,13 @@ export function TourHost() {
   return (
     <div data-tour="tour-bar" className={`fixed inset-x-0 z-[2147483001] ${place} border-y-2 border-amber-400 bg-slate-950 px-3 py-3 text-white shadow-2xl`}>
       <div className="mx-auto flex max-w-5xl flex-col gap-2">
+        {v.slate && (
+          <div data-tour="paypal-slate-banner" data-slate-id={v.slate} role="region" aria-label="Video editor cut point" className="w-full rounded-lg border-4 border-cyan-200 bg-cyan-950 p-5 text-center text-cyan-50">
+            <p className="text-2xl font-extrabold sm:text-4xl">{v.caption}</p>
+            {v.slate === "paypal-slate" && <p className="mt-2 text-lg font-semibold">Real sandbox checkout, capture and payout</p>}
+            <p className="mt-2 text-sm">Editor placeholder · guided demo only · no PayPal call</p>
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-200">
           <span className="rounded-full bg-amber-400 px-2 py-0.5 font-bold text-slate-950">Guided demo running</span>
           {active && (
@@ -49,6 +57,18 @@ export function TourHost() {
           {v.status === "ended" ? v.caption : v.status === "paused" ? (v.pausedBy === "user" ? uiText("pausedByUser") : uiText("paused")) : v.caption || "Starting the guided demo…"}
         </p>
         <div className="flex flex-wrap items-center gap-2">
+          {active && (
+            <>
+              <button type="button" className={btn} aria-label="Narration" aria-pressed={v.narration.enabled && !v.narration.forcedOff} disabled={v.narration.forcedOff} onClick={() => tour.setNarration(!v.narration.enabled)}>
+                Narration {v.narration.enabled && !v.narration.forcedOff ? "on" : "off"}
+              </button>
+              <label className="flex min-h-11 items-center gap-2 text-sm">
+                <span>Narration volume</span>
+                <input aria-label="Narration volume" type="range" min="0" max="1" step="0.05" value={v.narration.volume} onChange={e => tour.setVolume(Number(e.target.value))} className="w-24 accent-amber-400 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-amber-300" />
+              </label>
+              {v.narration.blocked && !v.narration.forcedOff && v.narration.enabled && <button type="button" className={btnPrimary} onClick={() => tour.enableSound()}>Tap to enable sound</button>}
+            </>
+          )}
           {v.status === "ended" && <button type="button" className={btn} onClick={() => tour.closeMessage()}>Close</button>}
           {active && !v.showEndActions && (
             <>

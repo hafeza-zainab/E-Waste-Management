@@ -17,6 +17,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: ${PAYPAL}`,
   "font-src 'self' data:",
+  "media-src 'self'",
   `connect-src 'self' ${PAYPAL}`,
   `frame-src ${PAYPAL}`,
   `form-action 'self' ${PAYPAL}`,

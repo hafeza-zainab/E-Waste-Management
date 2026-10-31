@@ -26,7 +26,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col">
         <a href="#main" className="sr-only focus:not-sr-only focus:p-3">Skip to content</a>
         <Toaster richColors position="top-center" />
-        {process.env.DEMO_ACTIONS === "true" && <TourHost />}
+        {process.env.DEMO_ACTIONS === "true" && <TourHost slateHold={process.env.TOUR_SLATE_HOLD ? Number(process.env.TOUR_SLATE_HOLD) : undefined} />}
         <Suspense fallback={null}><FlashToast /></Suspense>
         <DemoBanner />
         <SiteHeader />

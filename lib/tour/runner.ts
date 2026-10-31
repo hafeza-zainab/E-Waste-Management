@@ -24,6 +24,8 @@ export class TargetMissing extends Error {
 export const TICK_MS = 50;
 export const SPEEDS = [1, 1.5, 2] as const;
 
+interface NarratorControl { pause(): void; resume(): void; stop(): void; setSpeed(speed: number): void; tick(ms: number): void; readonly waiting: boolean }
+
 export class TourRunner {
   speed = 1;
   paused = false;
@@ -33,23 +35,29 @@ export class TourRunner {
   constructor(
     private sleep: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
     private tick = TICK_MS,
+    private narrator?: NarratorControl,
   ) {}
 
   abort() {
+    this.narrator?.stop();
     this.aborted = true;
   }
   skipChapter() {
+    this.narrator?.stop();
     this.skipRequested = true;
     this.paused = false;
   }
   pause() {
+    this.narrator?.pause();
     this.paused = true;
   }
   resume() {
+    this.narrator?.resume();
     this.paused = false;
   }
   setSpeed(s: number) {
     this.speed = s > 0 ? s : 1;
+    this.narrator?.setSpeed(this.speed);
   }
 
   /** Throws TourAbort or ChapterSkip when asked to. Called on every tick. */
@@ -73,8 +81,19 @@ export class TourRunner {
       }
       const d = Math.min(this.tick, left);
       await this.sleep(d);
+      this.narrator?.tick(d);
       left -= d;
       this.check();
+    }
+  }
+
+  /** Complete the current sentence and its padding without applying tour speed twice. */
+  async finishNarration() {
+    this.check();
+    while (this.narrator?.waiting) {
+      await this.sleep(this.tick);
+      this.check();
+      if (!this.paused) this.narrator.tick(this.tick);
     }
   }
 
@@ -87,6 +106,7 @@ export class TourRunner {
       if (v) return v;
       if (waited >= timeoutMs) return null;
       await this.sleep(this.tick);
+      if (!this.paused) this.narrator?.tick(this.tick);
       if (!this.paused) waited += this.tick;
     }
   }

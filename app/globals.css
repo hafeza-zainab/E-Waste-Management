@@ -49,3 +49,12 @@ input[type="file"] {
   min-height: 2.75rem;
   padding-block: 0.5rem;
 }
+/* Recording mode is enabled only by the tour's ?record=1 opt-in. */
+html[data-tour-recording="true"] [data-sonner-toaster],
+html[data-tour-recording="true"] nextjs-portal,
+html[data-tour-recording="true"] [data-dev-only],
+html[data-tour-recording="true"] [data-cookie-banner] {
+  display: none !important;
+}
+html[data-tour-recording="true"] { scroll-behavior: auto !important; }
+html[data-tour-recording="true"] * { scroll-behavior: auto !important; }

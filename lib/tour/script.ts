@@ -7,6 +7,7 @@ import captionsJson from "../../docs/tour-captions.json";
  * No selector in this file is position-based.
  */
 export type Step =
+  | { t: "slate"; id: "paypal-slate" | "paypal-slate-end"; cap: string; ms: number }
   | { t: "say"; cap: string; target: string; ms: number; optional?: boolean }
   | { t: "click"; target: string; cap?: string; ms?: number; optional?: boolean }
   | { t: "type"; target: string; text: string; cap: string }
@@ -79,6 +80,8 @@ const BASE_CHAPTERS: Chapter[] = [
       { t: "say", cap: "control.gate", target: "approve", ms: sec(8) },
       { t: "click", target: "approve", cap: "control.approve", ms: sec(1) },
       { t: "say", cap: "control.paypal", target: "paypal-button", ms: sec(9) },
+      { t: "slate", id: "paypal-slate", cap: "control.paypalSlate", ms: sec(3) },
+      { t: "slate", id: "paypal-slate-end", cap: "control.paypalSlateEnd", ms: sec(1.5) },
       { t: "click", target: "tour-pay", cap: "control.tourpay", ms: sec(3) },
       { t: "wait", target: "job-link" },
       { t: "say", cap: "control.held", target: "job-link", ms: sec(2.5) },
@@ -166,7 +169,8 @@ export const CHAPTERS: Chapter[] = chaptersFor("/signup");
 
 export const captionFor = (key: string): string => {
   const [group, name] = key.split(".");
-  return (captionsJson as unknown as Record<string, Record<string, string>>)[group]?.[name] ?? "";
+  const value = (captionsJson as unknown as Record<string, Record<string, string | { text: string; narration?: string }>>)[group]?.[name];
+  return typeof value === "string" ? value : value?.text ?? "";
 };
 export const uiText = (name: keyof typeof captionsJson.ui) => captionsJson.ui[name];
 export const TOUR_TARGET_BAR = "tour-bar";

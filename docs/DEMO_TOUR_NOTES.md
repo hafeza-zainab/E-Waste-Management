@@ -1,6 +1,6 @@
 # Guided demo ("Run guided demo") notes
 
-A narrated tour that drives the **real app**: it types into the real agent form, clicks the real buttons and switches a **tour-only identity** (owner or technician), while a caption bar explains each step. Because it operates the product instead of playing a video, the captions cannot drift out of sync with it. It takes about 3 to 3.5 minutes at 1x speed (measured: 3:16).
+A narrated tour that drives the **real app**: it types into the real agent form, clicks the real buttons and switches a **tour-only identity** (owner or technician), while a caption bar explains each step. Recorded narration extends each step until its sentence ends. The earlier silent measurement of 3:16 no longer describes narrated playback; the current manifest alone contains about 304 seconds of speech including the signup chapter. Measure the new full duration with `npm run verify:tour`; shorten the submission in editing.
 
 > The reference files from the CampusSync tour (`docs/reference/*`) were not in this repo when it was built, so the design was done from the written brief. Nothing was ported.
 
@@ -45,7 +45,7 @@ If a target is missing the step is skipped with a console warning and the chapte
 - Every record a tour creates carries `isTour = true` and `tourRunId` (devices, jobs, agent runs). A `TourRun` row plus an httpOnly cookie (`reloop_tour`) is the session; a readable flag cookie (`reloop_tour_on`, no id) tells the next page load that a session may exist.
 - Tour jobs can only be moved by the session that owns them: `lib/jobs/lifecycle.ts` calls `assertTourJobAccess` for every action (valid cookie bound to the job's `tourRunId`, `DEMO_ACTIONS=true`). `/api/tour/pay` additionally requires the user's real Approve click and a non-expired approval.
 - Excluded everywhere: impact totals and earnings, technician earnings, public technician profiles and CV exports, the donation fund total, webhook handling. Tour repairs never create a `VerifiedRepair` or `ImpactEvent`. Other visitors do not see them in My repairs or the technician board.
-- Cleanup runs on **Finish**, on **Stop**, on the **next page load** after an interrupted run (state stale for more than 20 s, or session lost), and as a **server purge** of runs older than 2 hours (and orphaned tour records) whenever a new tour starts. A reload mid-chapter within 20 s resumes the same run at the start of that chapter.
+- Cleanup runs on **Finish**, on **Stop**, on the **next page load** after an interrupted run (state stale for more than 20 s, or session lost), and as a **server purge** of runs older than 2 hours (and orphaned tour records) whenever a new tour starts. A reload within 20 s resumes the current step from its beginning, without replaying completed steps.
 - `sessionStorage` holds `{runId, chapter, startedAt, speed, job, heartbeat}`. State from a different or expired run is discarded and cleaned.
 
 ## Editing
@@ -79,3 +79,17 @@ There are two **Run guided demo** buttons. Both start the same tour; the tour st
 - Cleanup (finish, Stop, interrupted reload, 2-hour purge) also clears the overlay cookie.
 
 `tests/tour-identity.test.ts` covers the cookie, the boundaries and the untouched session; `scripts/verify-auth.ts` (`npm run verify:auth`) runs both entry points in a real browser: finish, Stop, reload, logged in / guest / logged out, zero PayPal requests, axe on the caption bar.
+
+## Recorded narration and editor slates
+
+Voiceover is AI-generated. The browser plays only manifest-listed `/tour/audio/<stepId>.mp3` files using one HTMLAudioElement. The manifest is bundled at build time: generate audio before building, and rebuild after regeneration. No speech-synthesis fallback or external TTS requests exist. Missing or failed audio is silent, with one warning per ID in development. Narration on/off and volume are saved in localStorage; the URL `?narration=off` overrides the saved setting for the run. Autoplay is primed from the demo click; if blocked, the tour continues silently and offers “Tap to enable sound” to start the current sentence. Finished sentences are not replayed when sound is enabled.
+
+Each step runs for at least its existing wait and until audio ends plus 0.4 seconds. Narration playback follows speed with preserved pitch, capped at 1.5x even when actions run at 2x. Pause/Resume, Skip, Stop, Escape and Finish affect audio. A stalled file times out after 15 seconds without progress, allowing a silent continuation. Step checkpoints in sessionStorage prevent completed steps replaying after reload.
+
+`paypal-slate` and `paypal-slate-end` bracket the cut point for the real PayPal clip: cut out these editor banners and insert the separately recorded sandbox checkout, capture and payout between them.
+
+The first slate says “Now showing how PayPal works here” with “Real sandbox checkout, capture and payout”; the second says “Back in the guided demo”. They are editor placeholders only, never PayPal actions. The first holds until its audio ends plus 3 seconds (minimum 3 seconds without audio). Optional server env `TOUR_SLATE_HOLD` sets its minimum hold in seconds, still allowing speech to finish. The return slate holds at least 1.5 seconds and allows its sentence to finish. Generate both new MP3s yourself after updating the steps, then rebuild; until then both slates remain silent.
+
+`?record=1` enables recording presentation for the run: caption bar stays visible, narration stays available, smooth scrolling and ring transitions are disabled, and Next dev overlays, marked dev-only overlays, cookie banners and toast presentation are hidden. The sandbox notice remains visible. This flag does not alter sessions, approval, payment or safety behavior. There is no cookie-consent banner in the current app. Preferences still apply; turn narration on and set volume before recording, or use `?narration=off` deliberately for a silent capture.
+
+Unit tests cover narrator selection, timing, persistence, lifecycle and blocked playback. `verify:tour` uses a mock Audio element with the actual manifest durations and reports the 1x home tour duration. `verify:auth` uses short mock audio for repeated identity checks. Browser mocks do not verify actual speaker output, MP3 pronunciation, loudness, pitch handling or recording desktop audio; listen manually. Slate audio checks require regenerating the manifest and rebuilding first.

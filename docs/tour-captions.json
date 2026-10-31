@@ -19,6 +19,8 @@
     "quote": "Here is the quote, within budget and itemised. The agent cannot pay for it."
   },
   "control": {
+    "paypalSlate": { "text": "Now showing how PayPal works here", "narration": "Now showing how PayPal works here." },
+    "paypalSlateEnd": { "text": "Back in the guided demo", "narration": "Back in the guided demo." },
     "gate": "You stay in control. The agent has no way to pay. Only this Approve button can unlock payment, and it creates a single-use approval token.",
     "approve": "Approving the quote now.",
     "paypal": "Here is where PayPal's checkout button would appear. The guided demo never loads or calls PayPal. You can try the real sandbox checkout afterwards, with the test buyer in the Demo guide.",

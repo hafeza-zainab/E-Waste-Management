@@ -1,4 +1,6 @@
 import { installPaypalGuard } from "./paypal-client-guard";
+import audioManifest from "../../public/tour/audio/manifest.json";
+import { TourNarrator, type NarrationSettings } from "./narrator";
 import { ChapterSkip, SPEEDS, TargetMissing, TourAbort, TourRunner } from "./runner";
 import { CHAPTERS, captionFor, chaptersFor, RETURN_PATHS, type Chapter, type ReturnTo, type Step, uiText } from "./script";
 
@@ -18,6 +20,9 @@ export const START_EVENT = "reloop:start-tour";
 export interface TourState {
   runId: string;
   chapter: number;
+  step?: number;
+  recording?: boolean;
+  narrationOff?: boolean;
   startedAt: number;
   pausedTotalMs: number;
   speed: number;
@@ -45,9 +50,11 @@ export interface TourView {
   showEndActions: boolean;
   /** Set while the tour-only identity overlay is switched, e.g. "Technician (tour)". */
   viewingAs: string | null;
+  narration: NarrationSettings;
+  slate: "paypal-slate" | "paypal-slate-end" | null;
 }
 
-const IDLE: TourView = { status: "idle", chapterIndex: 0, chapterCount: CHAPTERS.length, title: "", caption: "", position: "bottom", elapsedMs: 0, speed: 1, pausedBy: null, showEndActions: false, viewingAs: null };
+const IDLE: TourView = { status: "idle", chapterIndex: 0, chapterCount: CHAPTERS.length, title: "", caption: "", position: "bottom", elapsedMs: 0, speed: 1, pausedBy: null, showEndActions: false, viewingAs: null, narration: { enabled: true, volume: 1, blocked: false, forcedOff: false }, slate: null };
 const PRODUCES: Record<string, string> = { agent: "job", control: "paid", technician: "completed" };
 
 export const loadState = (): TourState | null => {
@@ -67,7 +74,7 @@ const saveState = (s: TourState | null) => {
   }
 };
 const hasFlagCookie = () => typeof document !== "undefined" && document.cookie.split("; ").some((c) => c === `${FLAG_COOKIE}=1`);
-const reducedMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+const reducedMotion = () => document.documentElement.dataset.tourRecording === "true" || (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches);
 
 const setNative = (el: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement, value: string) => {
   const proto = el instanceof HTMLSelectElement ? HTMLSelectElement.prototype : el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
@@ -96,6 +103,21 @@ class TourController {
   private pauseStart = 0;
   private endResolve: ((how: "finish" | "real") => void) | null = null;
   private running = false;
+  private slateHold: number | undefined;
+  private narrator = new TourNarrator(audioManifest, () => this.emit({ narration: { ...this.narrator.settings } }), undefined, {
+    getItem: key => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value),
+  });
+
+  setSlateHold(seconds?: number) { this.slateHold = seconds !== undefined && Number.isFinite(seconds) && seconds >= 0 ? seconds : undefined; }
+  setNarration(enabled: boolean) { this.narrator.setEnabled(enabled); }
+  setVolume(volume: number) { this.narrator.setVolume(volume); }
+  enableSound() { this.narrator.enableSound(); }
+  private configureNarration(s?: TourState | null) {
+    const params = new URLSearchParams(location.search);
+    const recording = params.get("record") === "1" || s?.recording === true;
+    document.documentElement.dataset.tourRecording = String(recording);
+    this.narrator.configure(params.get("narration") === "off" || s?.narrationOff === true);
+  }
 
   configure(deps: Deps) {
     this.deps = deps;
@@ -117,6 +139,7 @@ class TourController {
   async bootstrap() {
     if (this.running) return;
     const s = loadState();
+    this.configureNarration(s);
     const flag = hasFlagCookie();
     if (s && flag && Date.now() - s.heartbeat < STALE_MS) {
       this.state = s;
@@ -134,6 +157,8 @@ class TourController {
   async start(returnTo: ReturnTo = "/") {
     if (this.running) return;
     if (!RETURN_PATHS.includes(returnTo)) returnTo = "/";
+    this.configureNarration();
+    this.narrator.unlock();
     let runId: string;
     let seededTechId: string | null = null;
     try {
@@ -146,7 +171,7 @@ class TourController {
       this.deps.notify(e instanceof Error ? e.message : "The guided demo could not start.");
       return;
     }
-    this.state = { runId, chapter: 0, startedAt: Date.now(), pausedTotalMs: 0, speed: 1, heartbeat: Date.now(), returnTo, preserveSession: returnTo === "/", seededTechId, done: [], failures: 0 };
+    this.state = { runId, chapter: 0, step: 0, recording: document.documentElement.dataset.tourRecording === "true", narrationOff: this.narrator.settings.forcedOff, startedAt: Date.now(), pausedTotalMs: 0, speed: 1, heartbeat: Date.now(), returnTo, preserveSession: returnTo === "/", seededTechId, done: [], failures: 0 };
     this.returnTo = returnTo;
     this.deps.refresh(); // the header now shows the tour identity instead of the visitor's account
     saveState(this.state);
@@ -169,7 +194,11 @@ class TourController {
     this.emit({ status: "running", pausedBy: null });
   }
   skipChapter() {
-    if (this.view.status === "paused") this.resume();
+    if (this.view.status === "paused") {
+      if (this.state && this.pauseStart) this.state.pausedTotalMs += Date.now() - this.pauseStart;
+      this.pauseStart = 0;
+      this.emit({ status: "running", pausedBy: null });
+    }
     this.runner.skipChapter();
   }
   setSpeed(speed: number) {
@@ -192,9 +221,11 @@ class TourController {
   }
   /** Closing buttons on the last chapter. */
   finish() {
+    this.narrator.stop();
     this.endResolve?.("finish");
   }
   tryReal() {
+    this.narrator.stop();
     this.endResolve?.("real");
   }
   closeMessage() {
@@ -208,19 +239,21 @@ class TourController {
     const state = this.state!;
     const chapters = chaptersFor(state.returnTo);
     this.running = true;
-    this.runner = new TourRunner();
+    this.runner = new TourRunner(undefined, undefined, this.narrator);
     this.runner.setSpeed(state.speed);
     this.uninstallGuard = installPaypalGuard(window, () => {});
     this.ensureRing();
     this.attachUserGuards();
     this.timers.push(window.setInterval(() => this.heartbeat(), 1000));
-    this.emit({ ...IDLE, status: "running", speed: state.speed, chapterIndex: state.chapter, chapterCount: chapters.length, title: chapters[state.chapter]?.title ?? "" });
+    this.emit({ ...IDLE, narration: { ...this.narrator.settings }, status: "running", speed: state.speed, chapterIndex: state.chapter, chapterCount: chapters.length, title: chapters[state.chapter]?.title ?? "" });
 
     let how: "finish" | "real" | null = null;
     try {
       for (let i = state.chapter; i < chapters.length; i++) {
         const chapter = chapters[i];
+        const firstStep = i === state.chapter ? (state.step ?? 0) : 0;
         state.chapter = i;
+        state.step = firstStep;
         saveState(state);
         this.emit({ chapterIndex: i, title: chapter.title });
         if (chapter.needs?.some((n) => !state.done.includes(n))) {
@@ -228,18 +261,35 @@ class TourController {
           continue;
         }
         try {
-          for (const step of chapter.steps) {
+          for (let j = firstStep; j < chapter.steps.length; j++) {
+            const step = chapter.steps[j];
+            state.step = j;
+            saveState(state);
             const r = await this.exec(step, chapter);
+            await this.runner.finishNarration();
+            this.narrator.stop();
+            this.emit({ slate: null });
+            state.step = j + 1;
+            saveState(state);
             if (r) how = r;
           }
           const flag = PRODUCES[chapter.id];
           if (flag && !state.done.includes(flag)) state.done.push(flag);
+          state.step = 0;
+          state.chapter = i + 1;
+          saveState(state);
         } catch (e) {
           if (e instanceof ChapterSkip) {
+            this.narrator.stop();
+            this.emit({ slate: null });
+            state.step = 0; state.chapter = i + 1; saveState(state);
             console.warn(`[tour] chapter skipped: ${chapter.title}`);
             continue;
           }
           if (e instanceof TargetMissing) {
+            this.narrator.stop();
+            this.emit({ slate: null });
+            state.step = 0; state.chapter = i + 1;
             state.failures += 1;
             console.warn(`[tour] ${e.message} (chapter "${chapter.title}")`);
             if (state.failures >= 2) {
@@ -266,9 +316,20 @@ class TourController {
     const r = this.runner;
     const job = this.state?.job;
     const speaking = (key: string | undefined, el: Element | null) => {
-      if (key) this.emit({ caption: captionFor(key), position: this.positionFor(el) });
+      if (key) {
+        this.emit({ caption: captionFor(key), position: this.positionFor(el) });
+        this.narrator.begin(key);
+      }
     };
     switch (step.t) {
+      case "slate": {
+        this.setRing(null);
+        this.emit({ caption: captionFor(step.cap), slate: step.id, position: "bottom" });
+        const leadSlate = step.id === "paypal-slate";
+        this.narrator.begin(step.id, leadSlate && this.slateHold === undefined ? 3000 : 400);
+        await r.wait((leadSlate && this.slateHold !== undefined ? this.slateHold * 1000 : step.ms) * r.speed);
+        return null;
+      }
       case "nav": {
         const path = step.to === "$jobPath" ? `/jobs/${job?.id ?? ""}` : step.to === "$seededTechPath" ? this.seededTechPath() : "/";
         if (`${location.pathname}${location.search}` !== path) this.deps.push(path);
@@ -303,6 +364,7 @@ class TourController {
         const el = document.querySelector('[data-tour="tour-bar"]');
         speaking(step.cap, el);
         this.setRing(null);
+        await r.finishNarration();
         this.emit({ showEndActions: true, position: "bottom" });
         const how = await new Promise<"finish" | "real">((resolve) => (this.endResolve = resolve));
         if (this.runner.aborted) throw new TourAbort(); // Stop pressed: stop() already cleaned up
@@ -320,7 +382,7 @@ class TourController {
       }
       throw new TargetMissing(step.target);
     }
-    if ("cap" in step) speaking(step.cap, el);
+    if ("cap" in step && step.cap) this.emit({ caption: captionFor(step.cap), position: this.positionFor(el) });
     el.scrollIntoView({ block: "center", behavior: reducedMotion() ? "auto" : "smooth" });
     await r.wait(reducedMotion() ? 100 : 450);
     this.setRing(el);
@@ -333,6 +395,7 @@ class TourController {
         break;
       case "click":
         await r.wait(step.ms ?? 900);
+        await r.finishNarration();
         (el as HTMLElement).click();
         await r.wait(350);
         break;
@@ -459,6 +522,7 @@ class TourController {
   }
 
   private async teardown(cleanup: boolean, message: string, status: "idle" | "ended" = "idle") {
+    this.narrator.stop();
     const runId = this.state?.runId;
     this.timers.forEach((t) => clearInterval(t));
     this.timers = [];

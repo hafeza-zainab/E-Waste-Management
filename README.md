@@ -2,6 +2,8 @@
 
 Voiceover is AI-generated.
 
+Narration: the guided demo plays recorded files from `public/tour/audio`, with on/off, volume, pause and speed controls. Generate audio before building with `npm run tour:audio:generate`. For narrated recordings use `?record=1`; for silent recordings use `?narration=off`. See [recording instructions](demo/README.md). Missing audio runs silently; no speech synthesis runs in the app.
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-teal.svg)](LICENSE)
 
 **An AI repair agent that finds a safe, in-budget fix for a broken device, lets only *you* approve it, holds the payment in PayPal, and pays the technician only after you confirm the repair.**

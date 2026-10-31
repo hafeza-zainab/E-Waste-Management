@@ -25,7 +25,8 @@ async function main() {
     const [group, key] = s.cap.split('.');
     const value = captions[group]?.[key];
     const text = typeof value === 'string' ? value : value?.narration ?? value?.text ?? value?.caption;
-    return { id: s.cap, text, onScreenSeconds: s.ms ? s.ms / 1000 : null, file: `public/tour/audio/${s.cap}.mp3` };
+    const id = s.id ?? s.cap;
+    return { id, text, onScreenSeconds: s.ms ? s.ms / 1000 : null, file: `public/tour/audio/${id}.mp3` };
   }));
   tasks.push({ id: 'real', text: (await readFile(path.join(root, 'docs/voiceover-real-segment.txt'), 'utf8')).trim(), onScreenSeconds: null, file: 'demo/voiceover-real.mp3' });
   const force = process.argv.includes('--force');
