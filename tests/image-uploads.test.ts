@@ -91,6 +91,18 @@ describe("image selection and multipart uploads", () => {
     await expect(saveImageUpload(file)).rejects.toThrow(/Could not read/);
     await expect(saveImageUpload(new File([new Uint8Array(MAX_UPLOAD_BYTES + 1)], "big.jpg"))).rejects.toThrow(/4 MB/);
   });
+  it("allows an unselected optional photo serialized as an empty generic blob", async () => {
+    for (const type of ["", "application/octet-stream"]) {
+      const body = new FormData();
+      body.append("photo", new Blob([], { type }));
+      const parsed = await new Request("http://localhost/owner/new", { method: "POST", body }).formData();
+      const file = parsed.get("photo") as File;
+      expect(file.name).toBe("blob");
+      expect(file.size).toBe(0);
+      expect(await saveImageUpload(file)).toBeNull();
+    }
+    await expect(saveImageUpload(new File([], "blob", { type: "image/png" }))).rejects.toThrow(/empty/);
+  });
   it("keeps uploaded photos private when serving them", async () => {
     const saved = await saveImageUpload(new File([png], "photo.png"));
     const context = { params: Promise.resolve({ name: path.basename(saved!.publicPath) }) } as never;

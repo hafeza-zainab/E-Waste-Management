@@ -1,6 +1,7 @@
 import { installPaypalGuard } from "./paypal-client-guard";
 import audioManifest from "../../public/tour/audio/manifest.json";
 import { TourNarrator, type NarrationSettings } from "./narrator";
+import { narrationStorage, tourStateStorage } from "./storage";
 import { ChapterSkip, SPEEDS, TargetMissing, TourAbort, TourRunner } from "./runner";
 import { captionFor, chaptersFor, narrationId, RETURN_PATHS, TOUR_SCRIPT_VERSION, TOUR_TIMING, type Chapter, type ReturnTo, type Step, uiText } from "./script";
 
@@ -60,7 +61,7 @@ const PRODUCES: Record<string, string> = { agent: "job", control: "paid", techni
 
 export const loadState = (): TourState | null => {
   try {
-    const raw = sessionStorage.getItem(STATE_KEY);
+    const raw = tourStateStorage.getItem(STATE_KEY);
     return raw ? (JSON.parse(raw) as TourState) : null;
   } catch {
     return null;
@@ -68,8 +69,8 @@ export const loadState = (): TourState | null => {
 };
 const saveState = (s: TourState | null) => {
   try {
-    if (s) sessionStorage.setItem(STATE_KEY, JSON.stringify(s));
-    else sessionStorage.removeItem(STATE_KEY);
+    if (s) tourStateStorage.setItem(STATE_KEY, JSON.stringify(s));
+    else tourStateStorage.removeItem(STATE_KEY);
   } catch {
     /* storage unavailable: the tour still runs, it just cannot resume after a reload */
   }
@@ -105,9 +106,7 @@ class TourController {
   private endResolve: ((how: "finish" | "real") => void) | null = null;
   private running = false;
   private slateHold: number | undefined;
-  private narrator = new TourNarrator(audioManifest, () => this.emit({ narration: { ...this.narrator.settings } }), undefined, {
-    getItem: key => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value),
-  });
+  private narrator = new TourNarrator(audioManifest, () => this.emit({ narration: { ...this.narrator.settings } }), undefined, narrationStorage);
 
   setSlateHold(seconds?: number) { this.slateHold = seconds !== undefined && Number.isFinite(seconds) && seconds >= 0 ? seconds : undefined; }
   setNarration(enabled: boolean) { this.narrator.setEnabled(enabled); }

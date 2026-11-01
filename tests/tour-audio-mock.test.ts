@@ -48,6 +48,16 @@ describe("serialized production browser audio mock", () => {
     expect(buttonVisible).toBe(true);
     expect(narrator.waiting).toBe(false);
   });
+  it("does not throw from mock play when either browser storage getter is denied", async () => {
+    const d = await document();
+    vm.runInContext(`for (const kind of ['localStorage', 'sessionStorage']) Object.defineProperty(window, kind, { get() { throw new DOMException('Storage denied', 'SecurityError'); } });`, d.context);
+    const audio = new d.browser.Audio();
+    audio.src = "/tour/audio/problem.problem.mp3";
+    await expect(audio.play()).resolves.toBeUndefined();
+    audio.pause();
+    d.browser.__tourAudio.blocked = true;
+    await expect(audio.play()).rejects.toMatchObject({ name: "NotAllowedError" });
+  });
   it("reinstalls the helper after reload, shows the blocked state and retries the current clip at zero", async () => {
     const first = await document();
     const before = new TourNarrator(manifest, vi.fn(), () => new first.browser.Audio(), first.local, vi.fn());

@@ -9,7 +9,7 @@ services:
     # NODE_ENV=production would make plain `npm ci` skip devDependencies (typescript, tailwind, tsx), which the build and seed need.
     buildCommand: npm ci --include=dev && npm run build
     # Applies migrations and upserts missing sample data on every runtime start, then starts Next.js.
-    startCommand: npm run start:render
+    startCommand: npm run db:migrate && npm run start:render
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:

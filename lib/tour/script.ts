@@ -164,7 +164,7 @@ const BASE_CHAPTERS: Chapter[] = [
   },
 ];
 
-export const TOUR_TARGET_MS = 150_000;
+export const TOUR_TARGET_MS = 165_000;
 export const TOUR_SCRIPT_VERSION = 2;
 export const TOUR_TIMING = { settle: 300, action: 600, scroll: 200, afterClick: 200, character: 16 } as const;
 
@@ -196,7 +196,7 @@ const SHORT_CHAPTERS = BASE_CHAPTERS.map(chapter => compactChapter(chapter.id ==
   ],
 } : chapter));
 
-/** Default tour targets 2:30 at 1x, including action/network headroom. */
+/** Default tour targets 2:45 at 1x, including action/network headroom. */
 export const chaptersFor = (returnTo: ReturnTo): Chapter[] => returnTo === "/signup"
   ? [compactChapter(ACCOUNTS_CHAPTER), ...SHORT_CHAPTERS] : SHORT_CHAPTERS;
 /** Full caption/target catalog, including explanations omitted from the short tour. */

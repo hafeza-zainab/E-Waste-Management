@@ -1,6 +1,6 @@
 # Guided demo ("Run guided demo") notes
 
-A narrated tour that drives the **real app**: it types into the real agent form, clicks the real buttons and switches a **tour-only identity** (owner or technician), while a caption bar explains each step. The default tour now targets **2 minutes 30 seconds at 1x**, excluding pauses and the final user decision. It reuses complete existing recordings at normal speed, narrates the main explanations and performs routine actions silently. Profile/CV and donation detours are omitted; approval, both PayPal editor slates, simulated payment, technician proof, owner confirmation, safety and impact remain. The signup entry adds one brief form explanation. Network and server waits can extend the duration; `npm run verify:tour` measures the home tour and fails its duration check above 150 seconds. No browser measurement of the shortened version has been made yet.
+A narrated tour that drives the **real app**: it types into the real agent form, clicks the real buttons and switches a **tour-only identity** (owner or technician), while a caption bar explains each step. The default tour now targets **2 minutes 45 seconds at 1x**, excluding pauses and the final user decision. It reuses complete existing recordings at normal speed, narrates the main explanations and performs routine actions silently. Profile/CV and donation detours are omitted; approval, both PayPal editor slates, simulated payment, technician proof, owner confirmation, safety and impact remain. The signup entry adds one brief form explanation. Network and server waits can extend the duration; `npm run verify:tour` measures the home tour and fails its duration check above 165 seconds. No browser measurement of the shortened version has been made yet.
 
 > The reference files from the CampusSync tour (`docs/reference/*`) were not in this repo when it was built, so the design was done from the written brief. Nothing was ported.
 
@@ -28,7 +28,7 @@ A narrated tour that drives the **real app**: it types into the real agent form,
 
 Targets are found **only** by `data-tour="..."` attributes (no position-based selectors). `name@job` narrows to the element inside the tour job's own card or form, because the seeded technician board has other jobs.
 
-### Chapters (target 2:30 at 1x)
+### Chapters (target 2:45 at 1x)
 
 1. The flow (landing page). 2. The agent (goal, budget, tool trace and quote). 3. You stay in control (Approve, editor slates, TOUR-SIMULATED payment and job page). 4. Technician side (tour identity, accept, start, photo, notes, complete). 5. Confirm and pay out (owner confirmation and simulated payout). 6. Safety first (swollen battery and DIY blocked). 7. Impact (tour data excluded). 8. Your turn (sandbox guide or Finish).
 

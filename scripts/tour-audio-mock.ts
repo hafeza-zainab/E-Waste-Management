@@ -8,6 +8,10 @@ export async function mockTourAudio(context: BrowserContext, scale = 1) {
   const install = ({ durations, scale }: { durations: Record<string, number>; scale: number }) => {
     const state = window as unknown as { __tourAudio: TourAudioSnapshot; Audio: typeof Audio };
     state.__tourAudio = { played: [], active: 0, blocked: false, attempts: [] };
+    const storedBlock = (kind: "localStorage" | "sessionStorage") => {
+      try { return window[kind].getItem("reloop_test_audio_blocked") === "1"; }
+      catch { return false; }
+    };
     class RecordedAudio {
       src = ""; currentTime = 0; muted = false; volume = 1; playbackRate = 1; preservesPitch = true;
       onended: (() => void) | null = null;
@@ -16,7 +20,7 @@ export async function mockTourAudio(context: BrowserContext, scale = 1) {
       private last = 0;
       play() {
         const id = this.src.split("/").pop()!.replace(/\.mp3$/, "");
-        const blocked = state.__tourAudio.blocked || localStorage.getItem("reloop_test_audio_blocked") === "1" || sessionStorage.getItem("reloop_test_audio_blocked") === "1";
+        const blocked = state.__tourAudio.blocked || storedBlock("localStorage") || storedBlock("sessionStorage");
         state.__tourAudio.attempts.push({ id, allowed: !blocked, start: this.currentTime });
         if (blocked) return Promise.reject(new DOMException("Autoplay blocked by test", "NotAllowedError"));
         if (this.timer !== undefined) return Promise.resolve();

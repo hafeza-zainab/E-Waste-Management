@@ -10,6 +10,7 @@ import { ImageFileInput } from "@/components/image-file-input";
 import { attachImageFile, imageSelectionError } from "@/lib/image-upload";
 import { formatUsd } from "@/lib/jobs/money";
 import type { AgentEvent } from "@/lib/agent/runner";
+import { agentRunPath } from "@/lib/agent/run-url";
 import { simulateApprovalAction } from "@/app/jobs/actions";
 
 export const EXAMPLES = [
@@ -87,6 +88,10 @@ export function AgentConsole({ mode, clientId, allowSimulate, initialEvents, ini
           buf = buf.slice(nl + 1);
           if (!line) continue;
           const ev = JSON.parse(line) as AgentEvent;
+          if (ev.type === "start") {
+            const path = agentRunPath(window.location.href, ev.runId);
+            if (path) window.history.replaceState(window.history.state, "", path);
+          }
           setEvents((prev) => [...prev, ev]);
           if (ev.type === "quote") setQuoteState("open");
         }

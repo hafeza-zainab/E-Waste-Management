@@ -30,7 +30,10 @@ export async function saveImageUpload(file: FormDataEntryValue | null): Promise<
   // Multipart parsers can supply File objects from a different realm. Do not
   // silently discard those with an instanceof check against the global File.
   if (file.size === 0) {
-    if (!file.name) return null; // browser's empty optional file input
+    // An unselected input can arrive as an empty generic Blob named "blob"
+    // after multipart/Server Action serialization, rather than an unnamed File.
+    // Required-photo callers still reject null; named empty images remain errors.
+    if (!file.name || (file.name === "blob" && (!file.type || file.type === "application/octet-stream"))) return null;
     throw new Error("The selected photo is empty. Please choose another image.");
   }
   if (file.size > MAX_UPLOAD_BYTES) throw new Error("Photo is too large. The limit is 4 MB.");

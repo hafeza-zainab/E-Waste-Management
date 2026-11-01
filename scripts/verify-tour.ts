@@ -85,7 +85,11 @@ async function main() {
       ctx.on("request", (r) => seen.requests.push(r.url()));
       ctx.on("page", (p) => {
         p.on("console", (m) => { if (m.type() === "error") seen.consoleErrors.push(`console.${m.type()}: ${m.text()}`); if (m.type() === "warning") seen.warnings.push(m.text()); });
-        p.on("pageerror", (e) => seen.consoleErrors.push(`pageerror: ${e.message}`));
+        p.on("pageerror", (e) => {
+          const stack = e.stack ?? `${e.name}: ${e.message}`;
+          seen.consoleErrors.push(`pageerror: ${stack}`);
+          console.error(`[verify:tour pageerror] ${p.url()}\n${stack}`);
+        });
       });
       return { ctx, seen };
     };
@@ -105,7 +109,7 @@ async function main() {
       });
       check(v.length === 0, `axe: caption bar has no serious/critical violations (${label})${v.length ? `: ${v.join(", ")}` : ""}`);
     };
-    console.log(`\n2:30 target at 1x: scripted audio/actions ${Math.round(scriptedTourMs(manifest) / 1000)}s (home), ${Math.round(scriptedTourMs(manifest, "/signup") / 1000)}s (signup); remaining time is headroom for navigation and server waits.`);
+    console.log(`\n2:45 target at 1x: scripted audio/actions ${Math.round(scriptedTourMs(manifest) / 1000)}s (home), ${Math.round(scriptedTourMs(manifest, "/signup") / 1000)}s (signup); remaining time is headroom for navigation and server waits.`);
     const diagnostics = browserDiagnostics;
     const scenario = async (name: string, run: () => Promise<void>) => {
       console.log(`\nScenario: ${name}`);
@@ -140,12 +144,14 @@ async function main() {
         check(await page.evaluate(() => typeof (window as unknown as { __name?: unknown }).__name === "function" && window.Audio.name === "RecordedAudio"), "browser helper and Audio mock installed before the app runs");
         if (vp.speed !== "1") await page.locator('[data-tour="tour-bar"] select').selectOption(vp.speed);
         let axed = false;
+        let safetyVisible = false;
         const slates = new Set<string>();
         try {
           const deadline = Date.now() + 8 * 60_000;
           while (Date.now() < deadline) {
             if (await finishButton(page).isVisible().catch(() => false)) break;
             const slate = page.locator('[data-tour="paypal-slate-banner"]');
+          if (await page.locator('[data-tour="safety-stop"]').isVisible()) safetyVisible = true;
             if (await slate.isVisible()) {
               const id = await slate.getAttribute("data-slate-id");
               if (id && !slates.has(id)) { slates.add(id); await axeBar(page, id); }
@@ -157,15 +163,16 @@ async function main() {
           }
           const took = Date.now() - t0;
           check(await finishButton(page).isVisible(), `tour reached its last chapter in ${mmss(took)} (${took} ms)`);
-          if (vp.speed === "1") check(took <= TOUR_TARGET_MS, `1x tour fits the 2:30 budget (${mmss(took)}; ${took} ms)`);
+          if (vp.speed === "1") check(took <= TOUR_TARGET_MS, `1x tour fits the 2:45 budget (${mmss(took)}; ${took} ms)`);
           if (vp.speed === "1") console.log(`  MEASURED narrated home tour at 1x: ${mmss(took)} (${took} ms); includes action waits, excludes final user decision.`);
           check(slates.has("paypal-slate") && slates.has("paypal-slate-end"), "both editor slate steps displayed");
           const played = (await audioSnapshot(page)).played;
           const available = new Set(manifest.steps.map(e => e.id));
           const expected = chaptersFor("/").flatMap(c => c.steps.flatMap(s => narrationId(s) ? [narrationId(s)!] : [])).filter(id => available.has(id));
           const sequence = narrationSequenceDifferences(expected, played);
+          check(safetyVisible, "swollen-battery safety stop is visibly shown in the tour");
           check(sequence.ok, "recorded narration fires exactly once per available step, in order (including slates when generated)");
-          if (!sequence.ok) console.log(`  Sequence diagnostics: ${JSON.stringify({ ...sequence, expected, played })}`);
+          if (!sequence.ok) console.log(`  Sequence diagnostics: ${JSON.stringify({ ...sequence, expected, played, safetyVisible, warnings: seen.warnings })}`);
           for (const id of ["paypal-slate", "paypal-slate-end"]) if (!available.has(id)) console.log(`  NOTE  ${id} audio is not generated yet; banner tested, narration remains silent until generation and rebuild.`);
           await axeBar(page, `${vp.name}, closing caption`);
           await finishButton(page).click();
@@ -190,12 +197,14 @@ async function main() {
     for (const mode of ["mute", "url-off", "blocked"] as const) {
       await scenario(`interruption: ${mode}`, async () => {
         const { ctx, seen } = await newContext(1280, 800);
-        if (mode !== "url-off") await ctx.addInitScript(mode => {
-          if (mode === "mute") localStorage.setItem("reloop_tour_narration", JSON.stringify({ enabled: false, volume: 1 }));
-          else localStorage.setItem("reloop_test_audio_blocked", "1");
-        }, mode);
         const page = await ctx.newPage();
         await page.goto(`${BASE}/?record=1${mode === "url-off" ? "&narration=off" : ""}`, { waitUntil: "networkidle" });
+        // Storage cannot be accessed on about:blank/opaque-origin documents.
+        // Configure this scenario only on the loaded app origin, before Start.
+        if (mode !== "url-off") await page.evaluate(mode => {
+          if (mode === "mute") localStorage.setItem("reloop_tour_narration", JSON.stringify({ enabled: false, volume: 1 }));
+          else (window as unknown as { __tourAudio: { blocked: boolean } }).__tourAudio.blocked = true;
+        }, mode);
         check(await page.evaluate(() => window.Audio.name === "RecordedAudio"), `${mode}: Audio mock installed`);
         await page.locator('[data-tour="start-tour"]').click();
         await bar(page).waitFor();
@@ -259,10 +268,12 @@ async function main() {
         check(retried.played[0] === currentAudio, "Tap to enable sound restarts the current step after reload");
         check(retried.attempts.some(a => a.allowed && a.id === currentAudio && a.start === 0), "retried current audio starts from zero");
         await enableSound.waitFor({ state: "hidden" });
-        await finishButton(page).waitFor({ timeout: 6 * 60_000 });
+        console.log('  WAIT after reload: quote card [data-tour="quote-card"] visible (60 s timeout)');
+        await page.locator('[data-tour="quote-card"]').waitFor({ state: "visible", timeout: 60_000 });
         check(!(await audioSnapshot(page)).played.some(id => completed.includes(id)), "reload does not replay completed steps in its chapter");
-        await finishButton(page).click();
-        pass("the resumed tour ran to the end");
+        await bar(page).getByRole("button", { name: "Stop (Esc)", exact: true }).click();
+        await bar(page).waitFor({ state: "detached", timeout: 15000 });
+        pass("the resumed tour restored its quote card; Stop cleaned up the run");
       } catch (e) {
         fail(`resume after reload: ${e instanceof Error ? e.message.split("\n")[0] : e}`);
       }

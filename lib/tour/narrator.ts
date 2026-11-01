@@ -48,7 +48,7 @@ export class TourNarrator {
       const stored = JSON.parse(this.storage?.getItem(NARRATION_KEY) ?? "null");
       if (stored && typeof stored.enabled === "boolean") this.settings.enabled = stored.enabled;
       if (stored && typeof stored.volume === "number" && Number.isFinite(stored.volume)) this.settings.volume = Math.max(0, Math.min(1, stored.volume));
-    } catch { /* Storage is optional. */ }
+    } catch { /* Keep current in-memory preferences when storage is unavailable. */ }
     this.settings.forcedOff = forcedOff;
     this.changed();
   }
