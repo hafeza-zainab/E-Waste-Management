@@ -77,14 +77,18 @@ More detail: [docs/architecture.md](docs/architecture.md).
 
 **Continue as guest (demo).** Judges do not have to sign up. The button on `/signup` and `/login` creates a real, temporary owner account (named like "Guest 4821") with a normal session, so every feature works. Guests and their data are deleted after 24 hours.
 
-**Demo accounts** (seeded; shown in the *Demo guide* drawer):
+**Judge demo accounts** (automatically seeded on every production start; shown on login and signup):
 
 | Role | Email | Password |
 |---|---|---|
 | Owner | `owner@reloop.demo` | `reloop-demo-2026` |
 | Technician (Aisha Rahman) | `tech@reloop.demo` | `reloop-demo-2026` |
 
-The password is public by design (the accounts hold demo data only). To change it, set `DEMO_ACCOUNT_PASSWORD` (at least 10 characters) and restart. The other seeded technicians have accounts with no usable password.
+The password is public by design. These accounts contain **sample data**, not real PayPal transactions: seven devices spanning diagnosis, a swollen-battery safety block, an itemised quote and four completed repairs; Aisha has three paid-out sample repairs for her verified profile and PDF CV. Three sample donations ($85 total) and four repair impact events populate the dashboards. Other seeded technicians have no usable password.
+
+`npm start` applies migrations and runs the idempotent seed **before** `next start`; `npm run start:render` uses the same path. This happens at runtime on every restart, including after Render's ephemeral SQLite file is wiped. Existing users and records are preserved; reserved sample IDs prevent duplicates and seed reruns do not reset repair progress. Demo accounts are never guest accounts and are explicitly excluded from guest purging.
+
+Leave `DEMO_ACCOUNT_PASSWORD` unset for the public credentials above to work with no setup. A private override remains supported, but is never revealed by the login/signup box; judges then need the password from the host. `npm run db:reset` is an explicit destructive local reset; production startup never enables reset from `SEED_RESET`.
 
 **Guided demo (two buttons, same tour).** On the hosted demo (or any run with `DEMO_ACTIONS=true`) there is **"Run guided demo (about 3 minutes)"** on the home page and on the signup page. It operates the real app, with a caption bar explaining each step: the agent run and budget block, the approval gate, a technician accepting and completing a job with a proof photo, the owner confirming, the payout, the safety stop, and the verified profile, donation and impact pages. Controls: pause, skip chapter, speed 1x/1.5x/2x, stop (Esc).
 

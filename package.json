@@ -7,7 +7,7 @@
     "video": "node scripts/video.mjs",
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "start": "next start",
+    "start": "prisma migrate deploy && tsx prisma/seed.ts && next start",
     "lint": "eslint",
     "verify:tour": "tsx scripts/verify-tour.ts",
     "verify:auth": "tsx scripts/verify-auth.ts",
@@ -22,7 +22,7 @@
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:reset": "tsx prisma/seed.ts --reset",
-    "start:render": "prisma migrate deploy && tsx prisma/seed.ts && next start -H 0.0.0.0",
+    "start:render": "npm run start -- -H 0.0.0.0",
     "setup": "npm install && prisma generate && prisma migrate deploy && prisma db seed"
   },
   "dependencies": {

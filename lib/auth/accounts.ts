@@ -3,7 +3,7 @@ import { unlink } from "node:fs/promises";
 import path from "node:path";
 import { db } from "@/lib/db";
 import { uploadDir } from "@/lib/uploads";
-import { GUEST_TTL_MS, NO_PASSWORD } from "./constants";
+import { DEMO_OWNER_EMAIL, DEMO_TECH_EMAIL, GUEST_TTL_MS, NO_PASSWORD } from "./constants";
 import { hashPassword, verifyPassword } from "./password";
 import type { SignupInput } from "./validation";
 
@@ -68,7 +68,7 @@ export async function createGuest() {
 
 /** Deletes guests older than 24 hours together with everything they own (sessions cascade). Idempotent. */
 export async function purgeExpiredGuests(now = Date.now()) {
-  const guests = await db.user.findMany({ where: { isGuest: true, createdAt: { lt: new Date(now - GUEST_TTL_MS) } }, include: { owner: true } });
+  const guests = await db.user.findMany({ where: { isGuest: true, email: { notIn: [DEMO_OWNER_EMAIL, DEMO_TECH_EMAIL] }, createdAt: { lt: new Date(now - GUEST_TTL_MS) } }, include: { owner: true } });
   for (const g of guests) await deleteOwnerData(g.id, g.owner?.id ?? null);
   return guests.length;
 }

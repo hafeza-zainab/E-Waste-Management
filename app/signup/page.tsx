@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { GuestButton, SignupForm } from "@/components/auth/auth-forms";
+import { JudgeDemoAccounts } from "@/components/auth/judge-demo-accounts";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StartTourButton } from "@/components/tour/tour-host";
@@ -25,6 +26,7 @@ export default async function SignupPage(props: PageProps<"/signup">) {
         <strong>Use a throwaway password.</strong> This is a demo; the database resets when the server redeploys.
       </p>
       <Card className="space-y-4">
+        <JudgeDemoAccounts />
         <SignupForm next={next || undefined} />
       </Card>
       <Card className="space-y-3">

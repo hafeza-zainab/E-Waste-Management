@@ -9,11 +9,21 @@ export function selectAudio(manifest: NarrationManifest, id: string) {
   return manifest.steps.find(e => e.id === id && e.file === `public/tour/audio/${id}.mp3` && Number.isFinite(e.duration) && e.duration > 0);
 }
 type Store = Pick<Storage, "getItem" | "setItem">;
+// Browser DOMExceptions and errors from another realm need not inherit this
+// document's Error constructor. Autoplay policy is identified by its name.
+function playError(error: unknown) {
+  const object = error !== null && typeof error === "object" ? error : {};
+  return {
+    name: "name" in object && typeof object.name === "string" ? object.name : "UnknownError",
+    message: "message" in object && typeof object.message === "string" ? object.message : "Audio playback failed",
+  };
+}
 export interface NarrationSettings { enabled: boolean; volume: number; blocked: boolean; forcedOff: boolean }
 
 export class TourNarrator {
   settings: NarrationSettings = { enabled: true, volume: 1, blocked: false, forcedOff: false };
   private audio: HTMLAudioElement | null = null;
+  private unlocked = false;
   private entry: AudioEntry | undefined;
   private active = false;
   private paused = false;
@@ -63,22 +73,27 @@ export class TourNarrator {
   }
   /** Called synchronously from the start click, before any server request. Reuse this unlocked element. */
   unlock() {
-    if (!this.settings.enabled || this.settings.forcedOff || this.audio) return;
+    if (!this.settings.enabled || this.settings.forcedOff || this.unlocked) return;
     const first = this.manifest.steps.find(e => selectAudio(this.manifest, e.id));
     if (!first) return;
     try {
-      const audio = this.audio = this.makeAudio();
+      const audio = this.audio ??= this.makeAudio();
       const token = ++this.token;
       audio.src = first.file.replace(/^public/, "");
-      audio.muted = true;
+      audio.muted = false;
+      audio.volume = 0;
       void audio.play().then(() => {
         if (token !== this.token) return;
-        audio.pause(); audio.currentTime = 0; audio.muted = false;
-      }, () => {
+        audio.pause(); audio.currentTime = 0; audio.volume = this.settings.volume;
+        this.unlocked = true; this.settings.blocked = false; this.changed();
+      }, (error: unknown) => {
+        this.logPlayError("unlock", error, first.id);
         if (token !== this.token) return;
-        audio.muted = false; this.settings.blocked = true; this.changed();
+        audio.volume = this.settings.volume;
+        this.settings.blocked = playError(error).name === "NotAllowedError";
+        this.changed();
       });
-    } catch { this.settings.blocked = true; this.changed(); }
+    } catch (error) { this.logPlayError("unlock", error, first.id); this.settings.blocked = playError(error).name === "NotAllowedError"; this.changed(); }
   }
   begin(id: string, tail = 400) {
     this.stop();
@@ -100,31 +115,43 @@ export class TourNarrator {
   private missing(id: string) {
     if (!this.warned.has(id)) { this.warned.add(id); this.warn(`[tour] recorded narration unavailable: ${id}; continuing silently`); }
   }
+  private logPlayError(phase: "unlock" | "play", error: unknown, step: string) {
+    const { name, message } = playError(error);
+    this.warn(`[tour] audio play() rejected: step=${step} phase=${phase} ${name}: ${message}`);
+  }
   private play() {
     const audio = this.audio;
     if (!audio) return;
+    const step = this.entry?.id ?? "unknown";
     const token = ++this.token;
     this.pending = true;
     try {
       void audio.play().then(() => {
         if (token !== this.token) return;
         this.pending = false;
+        this.unlocked = true;
         if (this.paused || !this.active) audio.pause();
       }, (error: unknown) => {
+        this.logPlayError("play", error, step);
         if (token !== this.token) return;
         this.pending = false;
-        if (error instanceof Error && error.name === "NotAllowedError") { this.settings.blocked = true; this.changed(); }
-        else this.missing(this.entry?.id ?? "unknown");
+        if (playError(error).name === "NotAllowedError") { this.unlocked = false; this.settings.blocked = true; this.changed(); }
         this.stop();
       });
-    } catch { this.pending = false; this.settings.blocked = true; this.stop(); this.changed(); }
+    } catch (error) { this.logPlayError("play", error, step); this.pending = false; this.settings.blocked = playError(error).name === "NotAllowedError"; if (this.settings.blocked) this.unlocked = false; this.stop(); this.changed(); }
   }
   enableSound() {
     this.settings.blocked = false; this.changed();
     // Restart only the current sentence, never earlier steps.
     if (this.entry && !this.paused) this.begin(this.entry.id, this.tail);
   }
-  pause() { this.paused = true; this.audio?.pause(); }
+  pause() {
+    this.paused = true;
+    // pause() rejects an in-flight play() with AbortError. Ignore that stale
+    // attempt without discarding the active sentence needed by Resume.
+    this.token++; this.pending = false;
+    this.audio?.pause();
+  }
   resume() { this.paused = false; if (this.active && !this.settings.blocked) this.play(); }
   stop() {
     this.token++; this.audio?.pause();

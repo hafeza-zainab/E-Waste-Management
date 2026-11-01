@@ -98,6 +98,46 @@ describe("recorded tour narration", () => {
     expect(audio.currentTime).toBe(position);
     expect(audio.playing).toBe(true);
   });
+  it("resumes a pending play interrupted by Pause without losing the active sentence", async () => {
+    const { narrator, audio, warn } = fixture();
+    const diagnostic = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      let rejectPlay!: (error: Error) => void;
+      audio.play.mockImplementationOnce(() => new Promise<void>((_, reject) => { rejectPlay = reject; }));
+      narrator.begin("one"); audio.currentTime = 0.5;
+      narrator.pause();
+      rejectPlay(Object.assign(new Error("The play() request was interrupted by a call to pause()."), { name: "AbortError" }));
+      await Promise.resolve();
+      expect(narrator.waiting).toBe(true);
+      expect(audio.currentTime).toBe(0.5);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("step=one phase=play AbortError"));
+      narrator.resume(); await Promise.resolve();
+      expect(audio.play).toHaveBeenCalledTimes(2);
+      expect(audio.playing).toBe(true);
+    } finally { diagnostic.mockRestore(); }
+  });
+  it("retries a failed gesture unlock on the same element and does not unlock again after success", async () => {
+    const audio = new FakeAudio();
+    const makeAudio = vi.fn(() => audio as unknown as HTMLAudioElement);
+    const narrator = new TourNarrator(manifest, undefined, makeAudio);
+    const diagnostic = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      audio.blocked = true; narrator.unlock(); await Promise.resolve();
+      expect(narrator.settings.blocked).toBe(true);
+      audio.blocked = false; narrator.unlock(); await Promise.resolve();
+      expect(narrator.settings.blocked).toBe(false);
+      expect(makeAudio).toHaveBeenCalledTimes(1);
+      expect(audio.play).toHaveBeenCalledTimes(2);
+      expect(audio.volume).toBe(1);
+      narrator.unlock();
+      expect(audio.play).toHaveBeenCalledTimes(2);
+      narrator.begin("one"); await Promise.resolve();
+      narrator.configure(); narrator.begin("two"); await Promise.resolve();
+      expect(makeAudio).toHaveBeenCalledTimes(1);
+      expect(audio.src).toBe("/tour/audio/two.mp3");
+    } finally { diagnostic.mockRestore(); }
+  });
   it("skip and stop cancel immediately and reset the audio, including while paused", async () => {
     for (const operation of ["skipChapter", "abort"] as const) {
       const { narrator, audio } = fixture();
@@ -127,5 +167,68 @@ describe("recorded tour narration", () => {
   it("a stalled recording cannot hang the tour", () => {
     const { narrator, warn } = fixture(); narrator.begin("one"); narrator.tick(15000);
     expect(narrator.waiting).toBe(false); expect(warn).toHaveBeenCalledTimes(1);
+  });
+  it("after reload, a browser-shaped NotAllowedError shows recovery state and a tap restarts the current audio at zero", async () => {
+    const previous = fixture();
+    previous.narrator.begin("one"); await Promise.resolve();
+    previous.audio.advance(500);
+    const audio = new FakeAudio();
+    const warn = vi.fn();
+    const makeAudio = vi.fn(() => audio as unknown as HTMLAudioElement);
+    let soundButtonVisible = false;
+    // A new document gets a new narrator and Audio, with preferences but no
+    // inherited activation. Use a DOMException-shaped non-Error rejection.
+    const reloaded = new TourNarrator(manifest, () => {
+      soundButtonVisible = reloaded.settings.blocked && reloaded.settings.enabled && !reloaded.settings.forcedOff;
+    }, makeAudio, previous.store, warn);
+    reloaded.configure();
+    audio.play.mockRejectedValueOnce({ name: "NotAllowedError", message: "User activation required" });
+    reloaded.begin("two"); await Promise.resolve();
+    expect(soundButtonVisible).toBe(true);
+    expect(reloaded.waiting).toBe(false);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("step=two phase=play NotAllowedError"));
+    reloaded.enableSound(); await Promise.resolve();
+    expect(soundButtonVisible).toBe(false);
+    expect(audio.src).toBe("/tour/audio/two.mp3");
+    expect(audio.currentTime).toBe(0);
+    expect(audio.playing).toBe(true);
+    expect(audio.play).toHaveBeenCalledTimes(2);
+    expect(makeAudio).toHaveBeenCalledTimes(1);
+  });
+  it("a rejected manual retry releases the runner and continues silently without an automatic retry loop", async () => {
+    const { narrator, audio, warn } = fixture();
+    const denied = { name: "NotAllowedError", message: "Still blocked" };
+    audio.play.mockRejectedValueOnce(denied).mockRejectedValueOnce(denied);
+    narrator.begin("one"); await Promise.resolve();
+    narrator.enableSound(); await Promise.resolve();
+    expect(narrator.waiting).toBe(false);
+    expect(narrator.settings.blocked).toBe(true);
+    expect(warn).toHaveBeenCalledTimes(2);
+    let ticks = 0;
+    const runner = new TourRunner(async () => { ticks++; }, 50, narrator);
+    await runner.finishNarration();
+    expect(ticks).toBe(0);
+    narrator.begin("two"); await runner.wait(100);
+    expect(ticks).toBe(2);
+    expect(audio.play).toHaveBeenCalledTimes(2);
+  });
+  it("recognizes a synchronous NotAllowedError and logs the original step for a stale rejection", async () => {
+    const { narrator, audio, warn } = fixture();
+    audio.play.mockImplementationOnce(() => { throw { name: "NotAllowedError", message: "Blocked synchronously" }; });
+    narrator.begin("one");
+    expect(narrator.settings.blocked).toBe(true);
+    expect(narrator.waiting).toBe(false);
+    expect(warn).toHaveBeenCalledTimes(1);
+    let rejectPlay!: (reason: unknown) => void;
+    audio.play.mockImplementationOnce(() => new Promise<void>((_, reject) => { rejectPlay = reject; }));
+    narrator.enableSound();
+    narrator.begin("two"); await Promise.resolve();
+    rejectPlay({ name: "AbortError", message: "Interrupted by next source" });
+    await Promise.resolve();
+    expect(warn).toHaveBeenLastCalledWith(expect.stringContaining("step=one phase=play AbortError"));
+    expect(audio.src).toBe("/tour/audio/two.mp3");
+    expect(audio.playing).toBe(true);
+    expect(narrator.settings.blocked).toBe(false);
   });
 });

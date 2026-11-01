@@ -29,7 +29,7 @@ To use the live Claude agent: add `ANTHROPIC_API_KEY` and set `DEMO_MODE=false`.
 `npm run start:render` runs `prisma migrate deploy`, then `prisma/seed.ts`, then `next start -H 0.0.0.0` (Next reads Render's `PORT` itself):
 
 - Migrations are applied to the SQLite file.
-- The seed refreshes the parts catalogue and writes demo data **only if the database is empty**. It never wipes user-created data. (`npm run db:reset` or `SEED_RESET=true` wipes and reseeds; use it locally.)
+- Both `npm start` and `npm run start:render` apply migrations and upsert missing sample data on every runtime start, even on a nonempty database. Stable sample IDs prevent duplicates; existing user data and repair progress are preserved. Leave `DEMO_ACCOUNT_PASSWORD` unset for the public judge credentials shown on login/signup and in the README. A private override is never displayed. `npm run db:reset` explicitly wipes and reseeds locally; `SEED_RESET` no longer triggers a reset on production startup.
 - The free tier's disk is **ephemeral**: the database and uploaded photos are recreated on every redeploy and restart. That is fine for a demo; a missing photo shows a short note instead of a broken page.
 
 The health check is `GET /api/health` (200 when the database answers).

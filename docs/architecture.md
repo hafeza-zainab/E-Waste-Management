@@ -60,4 +60,4 @@ sequenceDiagram
 
 ## Deployment shape
 
-Single Render web service; `start:render` runs migrations, seeds only an empty database, then `next start`. Uploads are served by `app/uploads/[name]/route.ts` (Next does not serve files added to `public/` after build). See [deploy.md](deploy.md).
+Single Render web service; `start` and `start:render` run migrations, idempotently upsert missing sample data on every runtime restart, then run `next start`. Existing user data and repair progress are preserved. Uploads are served by `app/uploads/[name]/route.ts` (Next does not serve files added to `public/` after build). See [deploy.md](deploy.md).

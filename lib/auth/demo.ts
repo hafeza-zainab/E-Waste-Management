@@ -19,10 +19,12 @@ export async function ensureDemoAccounts(db: PrismaClient, env: Record<string, s
       ? await db.user.findUniqueOrThrow({ where: { id: owner.userId } })
       : await db.user.upsert({ where: { email: DEMO_OWNER_EMAIL }, update: {}, create: { email: DEMO_OWNER_EMAIL, name: owner.name, passwordHash: NO_PASSWORD, role: "owner" } });
     if (!owner.userId) await db.owner.update({ where: { id: owner.id }, data: { userId: user.id } });
+    await db.user.update({ where: { id: user.id }, data: { isGuest: false } });
     await setPassword(user.id, user.passwordHash);
   }
 
-  const tech = await db.technician.findFirst({ where: { name: DEMO_TECH_NAME } });
+  const tech = await db.technician.findFirst({ where: { user: { email: DEMO_TECH_EMAIL } } })
+    ?? await db.technician.findFirst({ where: { name: DEMO_TECH_NAME, OR: [{ userId: null }, { user: { email: { endsWith: "@reloop.invalid" } } }] } });
   if (tech) {
     let user = tech.userId ? await db.user.findUnique({ where: { id: tech.userId } }) : null;
     if (!user) {
@@ -31,6 +33,7 @@ export async function ensureDemoAccounts(db: PrismaClient, env: Record<string, s
     } else if (user.email !== DEMO_TECH_EMAIL) {
       user = await db.user.update({ where: { id: user.id }, data: { email: DEMO_TECH_EMAIL } });
     }
+    await db.user.update({ where: { id: user.id }, data: { isGuest: false } });
     await setPassword(user.id, user.passwordHash);
   }
 }

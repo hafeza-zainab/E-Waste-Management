@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { GuestButton, LoginForm } from "@/components/auth/auth-forms";
+import { JudgeDemoAccounts } from "@/components/auth/judge-demo-accounts";
 import { Card } from "@/components/ui/card";
 import { homeFor, safeNext } from "@/lib/auth/redirect";
 import { getSessionUser } from "@/lib/auth/sessions";
@@ -19,6 +20,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
         <p className="mt-1 text-muted">New here? <Link href={next ? `/signup?next=${encodeURIComponent(next)}` : "/signup"} className="font-medium text-primary underline">Create an account</Link>.</p>
       </div>
       <Card className="space-y-4">
+        <JudgeDemoAccounts />
         <LoginForm next={next || undefined} />
       </Card>
       <Card className="space-y-2">

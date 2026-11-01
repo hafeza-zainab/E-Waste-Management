@@ -15,7 +15,7 @@ import { chromium, type Browser, type Page } from "playwright-core";
 import { PrismaClient } from "@prisma/client";
 import { audioSnapshot, mockTourAudio } from "./tour-audio-mock";
 import manifest from "../public/tour/audio/manifest.json";
-import { chaptersFor } from "../lib/tour/script";
+import { captionFor, chaptersFor } from "../lib/tour/script";
 
 const PORT = process.env.TOUR_PORT ?? "3410";
 const BASE = `http://localhost:${PORT}`;
@@ -196,6 +196,10 @@ async function main() {
       await start(page);
       await page.locator('[data-tour="tour-bar"] select').selectOption("2");
       await bar(page).getByText(/Chapter 2 of/).waitFor({ timeout: 60_000 });
+      await bar(page).getByRole("status").filter({ hasText: captionFor("agent.trace") }).waitFor({ timeout: 120000 });
+      // A new document has no retained element/activation. Force the exact
+      // browser-shaped rejection until the user taps the recovery control.
+      await page.evaluate(() => sessionStorage.setItem("reloop_test_audio_blocked", "1"));
       await page.reload({ waitUntil: "domcontentloaded" });
       try {
         await bar(page).waitFor({ timeout: 15000 });
@@ -203,6 +207,18 @@ async function main() {
         const resumedChapter = chaptersFor("/")[saved.chapter];
         const completed = resumedChapter?.steps.slice(0, saved.step).flatMap(s => "cap" in s && s.cap ? ["id" in s ? s.id : s.cap] : []) ?? [];
         pass("after a reload mid-chapter the tour bar is back (resumed)");
+        const enableSound = page.getByRole("button", { name: "Tap to enable sound", exact: true });
+        await enableSound.waitFor({ state: "visible", timeout: 15000 });
+        check((await audioSnapshot(page)).played.length === 0, "after reload, denied autoplay is silent and shows the sound button");
+        const current = await page.evaluate(() => JSON.parse(sessionStorage.getItem("reloop_tour_state") ?? "{}") as { chapter: number; step: number });
+        const currentStep = chaptersFor("/")[current.chapter]?.steps[current.step];
+        const currentAudio = currentStep && "cap" in currentStep ? ("id" in currentStep ? currentStep.id : currentStep.cap) : undefined;
+        await page.evaluate(() => sessionStorage.removeItem("reloop_test_audio_blocked"));
+        await enableSound.click();
+        await page.waitForFunction(() => (window as unknown as { __tourAudio: { active: number } }).__tourAudio.active > 0);
+        const retried = await audioSnapshot(page);
+        check(retried.played[0] === currentAudio, "Tap to enable sound restarts the current step after reload");
+        await enableSound.waitFor({ state: "hidden" });
         await finishButton(page).waitFor({ timeout: 6 * 60_000 });
         check(!(await audioSnapshot(page)).played.some(id => completed.includes(id)), "reload does not replay completed steps in its chapter");
         await finishButton(page).click();

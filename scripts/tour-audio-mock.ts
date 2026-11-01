@@ -13,9 +13,9 @@ export async function mockTourAudio(context: BrowserContext, scale = 1) {
       private timer: ReturnType<typeof setInterval> | undefined;
       private last = 0;
       play() {
-        if (state.__tourAudio.blocked || localStorage.getItem("reloop_test_audio_blocked") === "1") return Promise.reject(new DOMException("Autoplay blocked by test", "NotAllowedError"));
+        if (state.__tourAudio.blocked || localStorage.getItem("reloop_test_audio_blocked") === "1" || sessionStorage.getItem("reloop_test_audio_blocked") === "1") return Promise.reject(new DOMException("Autoplay blocked by test", "NotAllowedError"));
         if (this.timer !== undefined) return Promise.resolve();
-        if (!this.muted) state.__tourAudio.played.push(this.src.split("/").pop()!.replace(/\.mp3$/, ""));
+        if (!this.muted && this.volume > 0) state.__tourAudio.played.push(this.src.split("/").pop()!.replace(/\.mp3$/, ""));
         state.__tourAudio.active++;
         this.last = performance.now();
         this.timer = setInterval(() => {
