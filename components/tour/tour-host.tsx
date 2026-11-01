@@ -106,7 +106,7 @@ export function TourHost({ slateHold }: { slateHold?: number }) {
 export function StartTourButton({ className, returnTo = "/" }: { className?: string; returnTo?: ReturnTo }) {
   return (
     <button type="button" data-tour="start-tour" data-return-to={returnTo} className={className} onClick={() => window.dispatchEvent(new CustomEvent<ReturnTo>(START_EVENT, { detail: returnTo }))}>
-      ▶ Run guided demo (about 3 minutes)
+      ▶ Run guided demo (about 2 min 30 sec)
     </button>
   );
 }

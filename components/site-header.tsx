@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getViewer } from "@/lib/session";
+import { LogoutButton } from "@/components/auth/logout-button";
 
 const linkClass = "inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium hover:bg-primary-soft";
 
@@ -36,9 +37,7 @@ export async function SiteHeader() {
                 <span className="text-muted"> · {user.isGuest ? "demo owner" : user.role}</span>
               </span>
               {user.isGuest && <Link href="/signup" className="min-h-11 content-center text-primary underline">Create an account to keep your data</Link>}
-              <form action="/api/auth/logout" method="post">
-                <button className="min-h-11 rounded-lg border border-border px-4 font-semibold hover:bg-primary-soft">Log out</button>
-              </form>
+              <LogoutButton />
             </>
           ) : (
             <>

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge, Card } from "@/components/ui/card";
 import { PayPalCheckout } from "@/components/paypal-checkout";
 import { TourPayStub } from "@/components/tour/tour-pay-stub";
+import { ImageFileInput } from "@/components/image-file-input";
+import { attachImageFile, imageSelectionError } from "@/lib/image-upload";
 import { formatUsd } from "@/lib/jobs/money";
 import type { AgentEvent } from "@/lib/agent/runner";
 import { simulateApprovalAction } from "@/app/jobs/actions";
@@ -52,19 +54,21 @@ export function AgentConsole({ mode, clientId, allowSimulate, initialEvents, ini
     const b = override?.budget ?? budget;
     const sc = override?.scenario ?? scenario;
     if (g.trim().length < 10) return setFormError("Describe what you need in at least 10 characters.");
+    const photo = fileRef.current?.files?.[0];
+    const photoError = photo ? imageSelectionError(photo) : null;
+    if (photoError) return setFormError(photoError);
     setFormError(null);
     setEvents([]);
     setQuoteState("none");
     setRunning(true);
     const ac = new AbortController();
     abortRef.current = ac;
-    const fd = new FormData();
-    fd.set("goal", g);
-    if (b.trim()) fd.set("budget", b.trim());
-    if (sc) fd.set("scenario", sc);
-    const photo = fileRef.current?.files?.[0];
-    if (photo) fd.set("photo", photo);
     try {
+      const fd = new FormData();
+      fd.set("goal", g);
+      if (b.trim()) fd.set("budget", b.trim());
+      if (sc) fd.set("scenario", sc);
+      attachImageFile(fd, photo);
       const res = await fetch("/api/agent/run", { method: "POST", body: fd, signal: ac.signal });
       if (!res.ok || !res.body) {
         const j = await res.json().catch(() => ({}));
@@ -123,7 +127,8 @@ export function AgentConsole({ mode, clientId, allowSimulate, initialEvents, ini
             </div>
             <div className="space-y-1">
               <label htmlFor="photo" className="font-medium">Photo (optional)</label>
-              <input id="photo" ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" disabled={running} className="block w-full text-sm" />
+              <ImageFileInput id="photo" name="photo" ref={fileRef} disabled={running} className="block w-full text-sm" />
+              <p className="text-xs text-muted">PNG, JPG, JPEG or WebP, up to 4 MB.</p>
             </div>
           </div>
           {formError && <p role="alert" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900">{formError}</p>}

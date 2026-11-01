@@ -11,11 +11,12 @@ import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { chromium, type Browser, type Page } from "playwright-core";
+import { chromium, type Browser, type BrowserContext, type Page } from "playwright-core";
 import { PrismaClient } from "@prisma/client";
 import { audioSnapshot, mockTourAudio, narrationSequenceDifferences } from "./tour-audio-mock";
+import { browserDiagnostics, paypalRequests, scriptedTourMs } from "./tour-verification";
 import manifest from "../public/tour/audio/manifest.json";
-import { captionFor, chaptersFor } from "../lib/tour/script";
+import { captionFor, chaptersFor, narrationId, TOUR_TARGET_MS } from "../lib/tour/script";
 
 const PORT = process.env.TOUR_PORT ?? "3410";
 const BASE = `http://localhost:${PORT}`;
@@ -75,14 +76,16 @@ async function main() {
     const clean = async () => Object.values(await leftovers()).every((n) => n === 0);
     const waitClean = async (ms = 15000) => { for (let t = 0; t < ms; t += 250) { if (await clean()) return true; await new Promise((r) => setTimeout(r, 250)); } return false; };
 
+    const observations = new Map<BrowserContext, { requests: string[]; consoleErrors: string[]; warnings: string[] }>();
     const newContext = async (width: number, height: number, mobile = false) => {
       const ctx = await browser!.newContext({ viewport: { width, height }, isMobile: mobile, hasTouch: mobile });
       await mockTourAudio(ctx);
-      const seen = { requests: [] as string[], consoleErrors: [] as string[] };
+      const seen = { requests: [] as string[], consoleErrors: [] as string[], warnings: [] as string[] };
+      observations.set(ctx, seen);
       ctx.on("request", (r) => seen.requests.push(r.url()));
       ctx.on("page", (p) => {
-        p.on("console", (m) => { if (m.type() === "error") seen.consoleErrors.push(m.text().slice(0, 200)); });
-        p.on("pageerror", (e) => seen.consoleErrors.push(`pageerror ${e.message.slice(0, 200)}`));
+        p.on("console", (m) => { if (m.type() === "error") seen.consoleErrors.push(`console.${m.type()}: ${m.text()}`); if (m.type() === "warning") seen.warnings.push(m.text()); });
+        p.on("pageerror", (e) => seen.consoleErrors.push(`pageerror: ${e.message}`));
       });
       return { ctx, seen };
     };
@@ -102,88 +105,116 @@ async function main() {
       });
       check(v.length === 0, `axe: caption bar has no serious/critical violations (${label})${v.length ? `: ${v.join(", ")}` : ""}`);
     };
-    const paypalRequests = (urls: string[]) => urls.filter((u) => /(^|\.)paypal(objects)?\.com/i.test(new URL(u).hostname) || new URL(u).pathname.startsWith("/api/paypal"));
+    console.log(`\n2:30 target at 1x: scripted audio/actions ${Math.round(scriptedTourMs(manifest) / 1000)}s (home), ${Math.round(scriptedTourMs(manifest, "/signup") / 1000)}s (signup); remaining time is headroom for navigation and server waits.`);
+    const diagnostics = browserDiagnostics;
+    const scenario = async (name: string, run: () => Promise<void>) => {
+      console.log(`\nScenario: ${name}`);
+      const previous = new Set(browser!.contexts());
+      try { await run(); }
+      catch (error) {
+        fail(`${name}: ${error instanceof Error ? error.message : String(error)}`);
+        for (const ctx of browser!.contexts().filter(ctx => !previous.has(ctx))) {
+          const seen = observations.get(ctx);
+          if (seen) console.log(`        ${diagnostics(seen)}; tour warnings: ${JSON.stringify(seen.warnings)}`);
+          for (const page of ctx.pages()) {
+            const progress = await page.evaluate(() => ({ url: location.href, state: sessionStorage.getItem("reloop_tour_state"), bar: document.querySelector('[data-tour="tour-bar"]')?.textContent })).catch(() => "page unavailable");
+            console.log(`        progress: ${JSON.stringify(progress)}`);
+          }
+          // Isolate later scenarios after a failure; the endpoint only cleans this context's tour cookie.
+          await ctx.request.post(`${BASE}/api/tour/cleanup`, { data: {} }).catch(() => {});
+        }
+      } finally {
+        for (const ctx of browser!.contexts().filter(ctx => !previous.has(ctx))) {
+          await ctx.close().catch(() => {});
+          observations.delete(ctx);
+        }
+      }
+    };
 
     for (const vp of [{ name: "1280 px (1x speed)", w: 1280, h: 800, mobile: false, speed: "1" }, { name: "412 px mobile (2x speed)", w: 412, h: 915, mobile: true, speed: "2" }]) {
-      console.log(`\nFull tour at ${vp.name}`);
-      const { ctx, seen } = await newContext(vp.w, vp.h, vp.mobile);
-      const page = await ctx.newPage();
-      const t0 = Date.now();
-      await start(page);
-      check(await page.evaluate(() => typeof (window as unknown as { __name?: unknown }).__name === "function" && window.Audio.name === "RecordedAudio"), "browser helper and Audio mock installed before the app runs");
-      if (vp.speed !== "1") await page.locator('[data-tour="tour-bar"] select').selectOption(vp.speed);
-      let axed = false;
-      const slates = new Set<string>();
-      try {
-        const deadline = Date.now() + 8 * 60_000;
-        while (Date.now() < deadline) {
-          if (await finishButton(page).isVisible().catch(() => false)) break;
-          const slate = page.locator('[data-tour="paypal-slate-banner"]');
-          if (await slate.isVisible()) {
-            const id = await slate.getAttribute("data-slate-id");
-            if (id && !slates.has(id)) { slates.add(id); await axeBar(page, id); }
+      await scenario(`full tour at ${vp.name}`, async () => {
+        const { ctx, seen } = await newContext(vp.w, vp.h, vp.mobile);
+        const page = await ctx.newPage();
+        const t0 = Date.now();
+        await start(page);
+        check(await page.evaluate(() => typeof (window as unknown as { __name?: unknown }).__name === "function" && window.Audio.name === "RecordedAudio"), "browser helper and Audio mock installed before the app runs");
+        if (vp.speed !== "1") await page.locator('[data-tour="tour-bar"] select').selectOption(vp.speed);
+        let axed = false;
+        const slates = new Set<string>();
+        try {
+          const deadline = Date.now() + 8 * 60_000;
+          while (Date.now() < deadline) {
+            if (await finishButton(page).isVisible().catch(() => false)) break;
+            const slate = page.locator('[data-tour="paypal-slate-banner"]');
+            if (await slate.isVisible()) {
+              const id = await slate.getAttribute("data-slate-id");
+              if (id && !slates.has(id)) { slates.add(id); await axeBar(page, id); }
+            }
+            if (!axed && /Chapter [3-9]/.test((await bar(page).innerText().catch(() => "")))) { await axeBar(page, vp.name); axed = true; }
+            const text = await bar(page).innerText().catch(() => "");
+            if (/Tour ended early/.test(text)) throw new Error(`the tour ended early: ${text.replace(/\s+/g, " ")}`);
+            await page.waitForTimeout(500);
           }
-          if (!axed && /Chapter [3-9]/.test((await bar(page).innerText().catch(() => "")))) { await axeBar(page, vp.name); axed = true; }
-          const text = await bar(page).innerText().catch(() => "");
-          if (/Tour ended early/.test(text)) throw new Error(`the tour ended early: ${text.replace(/\s+/g, " ")}`);
-          await page.waitForTimeout(500);
+          const took = Date.now() - t0;
+          check(await finishButton(page).isVisible(), `tour reached its last chapter in ${mmss(took)} (${took} ms)`);
+          if (vp.speed === "1") check(took <= TOUR_TARGET_MS, `1x tour fits the 2:30 budget (${mmss(took)}; ${took} ms)`);
+          if (vp.speed === "1") console.log(`  MEASURED narrated home tour at 1x: ${mmss(took)} (${took} ms); includes action waits, excludes final user decision.`);
+          check(slates.has("paypal-slate") && slates.has("paypal-slate-end"), "both editor slate steps displayed");
+          const played = (await audioSnapshot(page)).played;
+          const available = new Set(manifest.steps.map(e => e.id));
+          const expected = chaptersFor("/").flatMap(c => c.steps.flatMap(s => narrationId(s) ? [narrationId(s)!] : [])).filter(id => available.has(id));
+          const sequence = narrationSequenceDifferences(expected, played);
+          check(sequence.ok, "recorded narration fires exactly once per available step, in order (including slates when generated)");
+          if (!sequence.ok) console.log(`  Sequence diagnostics: ${JSON.stringify({ ...sequence, expected, played })}`);
+          for (const id of ["paypal-slate", "paypal-slate-end"]) if (!available.has(id)) console.log(`  NOTE  ${id} audio is not generated yet; banner tested, narration remains silent until generation and rebuild.`);
+          await axeBar(page, `${vp.name}, closing caption`);
+          await finishButton(page).click();
+          await page.waitForURL(`${BASE}/`, { timeout: 15000 });
+          await bar(page).waitFor({ state: "detached", timeout: 15000 });
+          check((await audioSnapshot(page)).active === 0, "Finish leaves no audio playing");
+          pass("Finish returned to the landing page and removed the caption bar");
+        } catch (e) {
+          fail(`tour did not finish: ${e instanceof Error ? e.message.split("\n")[0] : e}`);
+          await page.screenshot({ path: path.join(tmp, `fail-${vp.w}.png`) }).catch(() => {});
+          console.log(`        screenshot: ${path.join(tmp, `fail-${vp.w}.png`)}`);
         }
-        const took = Date.now() - t0;
-        check(await finishButton(page).isVisible(), `tour reached its last chapter in ${mmss(took)} (${took} ms)`);
-        if (vp.speed === "1") console.log(`  MEASURED narrated home tour at 1x: ${mmss(took)} (${took} ms); includes action waits, excludes final user decision.`);
-        check(slates.has("paypal-slate") && slates.has("paypal-slate-end"), "both editor slate steps displayed");
-        const played = (await audioSnapshot(page)).played;
-        const available = new Set(manifest.steps.map(e => e.id));
-        const expected = chaptersFor("/").flatMap(c => c.steps.flatMap(s => "cap" in s && s.cap ? ["id" in s ? s.id : s.cap] : [])).filter(id => available.has(id));
-        const sequence = narrationSequenceDifferences(expected, played);
-        check(sequence.ok, "recorded narration fires exactly once per available step, in order (including slates when generated)");
-        if (!sequence.ok) console.log(`  Sequence diagnostics: ${JSON.stringify({ ...sequence, expected, played })}`);
-        for (const id of ["paypal-slate", "paypal-slate-end"]) if (!available.has(id)) console.log(`  NOTE  ${id} audio is not generated yet; banner tested, narration remains silent until generation and rebuild.`);
-        await axeBar(page, `${vp.name}, closing caption`);
-        await finishButton(page).click();
-        await page.waitForURL(`${BASE}/`, { timeout: 15000 });
-        await bar(page).waitFor({ state: "detached", timeout: 15000 });
-        check((await audioSnapshot(page)).active === 0, "Finish leaves no audio playing");
-        pass("Finish returned to the landing page and removed the caption bar");
-      } catch (e) {
-        fail(`tour did not finish: ${e instanceof Error ? e.message.split("\n")[0] : e}`);
-        await page.screenshot({ path: path.join(tmp, `fail-${vp.w}.png`) }).catch(() => {});
-        console.log(`        screenshot: ${path.join(tmp, `fail-${vp.w}.png`)}`);
-      }
-      check(await waitClean(), `no isTour leftovers in the database or uploads (${JSON.stringify(await leftovers())})`);
-      const pp = paypalRequests(seen.requests);
-      check(pp.length === 0, `zero requests to PayPal hosts or /api/paypal/* (${seen.requests.length} requests seen${pp.length ? `; first: ${pp[0]}` : ""})`);
-      check(seen.consoleErrors.length === 0, `no console errors${seen.consoleErrors.length ? `: ${seen.consoleErrors.slice(0, 3).join(" | ")}` : ""}`);
-      await ctx.close();
+        check(await waitClean(), `no isTour leftovers in the database or uploads (${JSON.stringify(await leftovers())})`);
+        const pp = paypalRequests(seen.requests);
+        check(pp.length === 0, `zero requests to PayPal hosts or /api/paypal/* (${seen.requests.length} requests seen${pp.length ? `; first: ${pp[0]}` : ""})`);
+        check(seen.consoleErrors.length === 0, `no console errors${seen.consoleErrors.length ? `: ${seen.consoleErrors.slice(0, 3).join(" | ")}` : ""}`);
+        await ctx.close();
+      });
     }
 
     console.log("\nInterruptions");
     for (const mode of ["mute", "url-off", "blocked"] as const) {
-      const { ctx, seen } = await newContext(1280, 800);
-      if (mode !== "url-off") await ctx.addInitScript(mode => {
-        if (mode === "mute") localStorage.setItem("reloop_tour_narration", JSON.stringify({ enabled: false, volume: 1 }));
-        else localStorage.setItem("reloop_test_audio_blocked", "1");
-      }, mode);
-      const page = await ctx.newPage();
-      await page.goto(`${BASE}/?record=1${mode === "url-off" ? "&narration=off" : ""}`, { waitUntil: "networkidle" });
-      check(await page.evaluate(() => window.Audio.name === "RecordedAudio"), `${mode}: Audio mock installed`);
-      await page.locator('[data-tour="start-tour"]').click();
-      await bar(page).waitFor();
-      await bar(page).locator("select").selectOption("2");
-      if (mode === "blocked") {
-        await page.waitForFunction(() => (window as unknown as { __tourAudio: { attempts: { allowed: boolean }[] } }).__tourAudio.attempts.some(a => !a.allowed));
-        check((await audioSnapshot(page)).attempts.some(a => !a.allowed), "blocked: mock play() actually rejected with NotAllowedError");
-        await page.getByRole("button", { name: "Tap to enable sound" }).waitFor();
-      }
-      await finishButton(page).waitFor({ timeout: 8 * 60_000 });
-      check((await audioSnapshot(page)).played.length === 0, `${mode}: tour completes silently without replaying audio`);
-      await finishButton(page).click();
-      await bar(page).waitFor({ state: "detached" });
-      check((await audioSnapshot(page)).active === 0, `${mode}: Finish cancels audio`);
-      check(seen.consoleErrors.length === 0 && paypalRequests(seen.requests).length === 0, `${mode}: zero console errors or PayPal requests`);
-      await ctx.close();
+      await scenario(`interruption: ${mode}`, async () => {
+        const { ctx, seen } = await newContext(1280, 800);
+        if (mode !== "url-off") await ctx.addInitScript(mode => {
+          if (mode === "mute") localStorage.setItem("reloop_tour_narration", JSON.stringify({ enabled: false, volume: 1 }));
+          else localStorage.setItem("reloop_test_audio_blocked", "1");
+        }, mode);
+        const page = await ctx.newPage();
+        await page.goto(`${BASE}/?record=1${mode === "url-off" ? "&narration=off" : ""}`, { waitUntil: "networkidle" });
+        check(await page.evaluate(() => window.Audio.name === "RecordedAudio"), `${mode}: Audio mock installed`);
+        await page.locator('[data-tour="start-tour"]').click();
+        await bar(page).waitFor();
+        await bar(page).locator("select").selectOption("2");
+        if (mode === "blocked") {
+          await page.waitForFunction(() => (window as unknown as { __tourAudio: { attempts: { allowed: boolean }[] } }).__tourAudio.attempts.some(a => !a.allowed));
+          check((await audioSnapshot(page)).attempts.some(a => !a.allowed), "blocked: mock play() actually rejected with NotAllowedError");
+          await page.getByRole("button", { name: "Tap to enable sound" }).waitFor();
+        }
+        await finishButton(page).waitFor({ timeout: 8 * 60_000 });
+        check((await audioSnapshot(page)).played.length === 0, `${mode}: tour completes silently without replaying audio`);
+        await finishButton(page).click();
+        await bar(page).waitFor({ state: "detached" });
+        check((await audioSnapshot(page)).active === 0, `${mode}: Finish cancels audio`);
+        check(seen.consoleErrors.length === 0 && paypalRequests(seen.requests).length === 0, `${mode}: zero console errors or PayPal requests; ${diagnostics(seen)}`);
+        await ctx.close();
+      });
     }
-    {
+    await scenario("pause, resume and stop", async () => {
       const { ctx } = await newContext(1280, 800);
       const page = await ctx.newPage();
       await start(page);
@@ -196,8 +227,8 @@ async function main() {
       await bar(page).waitFor({ state: "detached" });
       check((await audioSnapshot(page)).active === 0, "Stop cancels audio immediately");
       await ctx.close();
-    }
-    {
+    });
+    await scenario("reload mid-chapter", async () => {
       // A: a reload in the middle of a chapter resumes the same run and still finishes cleanly.
       const { ctx, seen } = await newContext(1280, 800);
       const page = await ctx.newPage();
@@ -213,14 +244,14 @@ async function main() {
         await bar(page).waitFor({ timeout: 15000 });
         const saved = await page.evaluate(() => JSON.parse(sessionStorage.getItem("reloop_tour_state") ?? "{}") as { chapter: number; step: number });
         const resumedChapter = chaptersFor("/")[saved.chapter];
-        const completed = resumedChapter?.steps.slice(0, saved.step).flatMap(s => "cap" in s && s.cap ? ["id" in s ? s.id : s.cap] : []) ?? [];
+        const completed = resumedChapter?.steps.slice(0, saved.step).flatMap(s => narrationId(s) ? [narrationId(s)!] : []) ?? [];
         pass("after a reload mid-chapter the tour bar is back (resumed)");
         const enableSound = page.getByRole("button", { name: "Tap to enable sound", exact: true });
         await enableSound.waitFor({ state: "visible", timeout: 15000 });
         check((await audioSnapshot(page)).played.length === 0, "after reload, denied autoplay is silent and shows the sound button");
         const current = await page.evaluate(() => JSON.parse(sessionStorage.getItem("reloop_tour_state") ?? "{}") as { chapter: number; step: number });
         const currentStep = chaptersFor("/")[current.chapter]?.steps[current.step];
-        const currentAudio = currentStep && "cap" in currentStep ? ("id" in currentStep ? currentStep.id : currentStep.cap) : undefined;
+        const currentAudio = currentStep ? narrationId(currentStep) : undefined;
         await page.evaluate(() => sessionStorage.removeItem("reloop_test_audio_blocked"));
         await enableSound.click();
         await page.waitForFunction(() => (window as unknown as { __tourAudio: { active: number } }).__tourAudio.active > 0);
@@ -238,14 +269,20 @@ async function main() {
       check(await waitClean(), "resumed run left nothing behind");
       check(paypalRequests(seen.requests).length === 0, "resumed run made zero PayPal requests");
       await ctx.close();
-    }
-    {
+    });
+    await scenario("abandoned tab cleanup", async () => {
       // B: tab closed mid-tour (sessionStorage gone, cookie remains): the next page load cleans up.
       const { ctx } = await newContext(1280, 800);
       const page = await ctx.newPage();
       await start(page);
       await page.locator('[data-tour="tour-bar"] select').selectOption("2");
-      await bar(page).getByText(/Chapter 4 of/).waitFor({ timeout: 90_000 });
+      // Cleanup needs an existing job, not an arbitrary chapter number. Narration
+      // before chapter 4 exceeds the old 90s budget even at the capped 1.5x rate.
+      await page.waitForFunction(() => {
+        const state = JSON.parse(sessionStorage.getItem("reloop_tour_state") ?? "{}");
+        if (state.failures > 0 || (state.chapter >= 2 && !state.done?.includes("job"))) throw new Error("agent chapter failed/skipped before producing a job");
+        return Boolean(state.job && state.done?.includes("job"));
+      }, undefined, { timeout: 4 * 60_000 });
       check((await leftovers()).jobs > 0, "mid-tour, a tagged tour job exists");
       await page.close();
       const again = await ctx.newPage();
@@ -253,8 +290,8 @@ async function main() {
       check(await waitClean(), "abandoned tour (tab closed) was cleaned on the next page load");
       check((await bar(again).count()) === 0, "no caption bar after the cleanup");
       await ctx.close();
-    }
-    {
+    });
+    await scenario("stale saved state cleanup", async () => {
       // C: stale saved state (heartbeat too old) is cleaned instead of resumed.
       const { ctx } = await newContext(1280, 800);
       const page = await ctx.newPage();
@@ -268,7 +305,7 @@ async function main() {
       await page.goto(BASE + "/", { waitUntil: "networkidle" }); // hard load
       check(await waitClean(), "stale tour state was cleaned on the next page load instead of resumed");
       await ctx.close();
-    }
+    });
   } finally {
     await browser?.close();
     await prisma.$disconnect();
@@ -278,12 +315,12 @@ async function main() {
     await new Promise((r) => setTimeout(r, 500));
     rmSync(tmp, { recursive: true, force: true });
   }
-  console.log(failures ? `\n${failures} problem(s)` : "\nAll tour checks passed");
-  process.exit(failures ? 1 : 0);
 }
 
 main().catch((e) => {
-  console.error(e);
-  process.exit(1);
+  fail(`verifier setup/teardown: ${e instanceof Error ? e.message : String(e)}`);
+}).finally(() => {
+  console.log(failures ? `\nSummary: ${failures} problem(s)` : "\nSummary: All tour checks passed");
+  process.exitCode = failures ? 1 : 0;
 });
 

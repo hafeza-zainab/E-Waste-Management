@@ -2,6 +2,7 @@ import { createDevice } from "../actions";
 import { requirePrincipal } from "@/lib/session";
 import { Card } from "@/components/ui/card";
 import { SubmitButton } from "@/components/submit-button";
+import { ImageFileInput } from "@/components/image-file-input";
 import { SCENARIO_INTAKE, type ScenarioKey } from "@/lib/ai/fixtures";
 import { DEVICE_TYPES } from "@/lib/ai/schemas";
 
@@ -67,7 +68,7 @@ export default async function NewDevicePage(props: PageProps<"/owner/new">) {
           </div>
           <div className="space-y-1">
             <label htmlFor="photo" className="font-medium">Photo (optional)</label>
-            <input id="photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp" className="block w-full text-sm" />
+            <ImageFileInput id="photo" name="photo" className="block w-full text-sm" />
             <p className="text-sm text-muted">JPEG, PNG or WebP, up to 4 MB.</p>
           </div>
           <SubmitButton tour="diagnose" pendingText="Diagnosing…">Diagnose</SubmitButton>

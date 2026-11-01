@@ -3,7 +3,7 @@ import type { BrowserContext } from "playwright-core";
 import { describe, expect, it, vi } from "vitest";
 import { mockTourAudio, narrationSequenceDifferences, type TourAudioSnapshot } from "../scripts/tour-audio-mock";
 import { TourNarrator } from "@/lib/tour/narrator";
-import { chaptersFor } from "@/lib/tour/script";
+import { chaptersFor, narrationId } from "@/lib/tour/script";
 import manifest from "../public/tour/audio/manifest.json";
 
 const storage = () => {
@@ -70,7 +70,7 @@ describe("serialized production browser audio mock", () => {
     const d = await document();
     const narrator = new TourNarrator(manifest, vi.fn(), () => new d.browser.Audio(), d.local, vi.fn());
     const available = new Set(manifest.steps.map(e => e.id));
-    const expected = chaptersFor("/").flatMap(c => c.steps.flatMap(s => "cap" in s && s.cap ? ["id" in s ? s.id : s.cap] : [])).filter(id => available.has(id));
+    const expected = chaptersFor("/").flatMap(c => c.steps.flatMap(s => narrationId(s) ? [narrationId(s)!] : [])).filter(id => available.has(id));
     narrator.unlock(); await Promise.resolve();
     expect(d.browser.__tourAudio.played).toEqual([]);
     for (const id of expected) {

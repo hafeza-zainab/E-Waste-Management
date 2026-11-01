@@ -2,7 +2,7 @@ import { installPaypalGuard } from "./paypal-client-guard";
 import audioManifest from "../../public/tour/audio/manifest.json";
 import { TourNarrator, type NarrationSettings } from "./narrator";
 import { ChapterSkip, SPEEDS, TargetMissing, TourAbort, TourRunner } from "./runner";
-import { CHAPTERS, captionFor, chaptersFor, RETURN_PATHS, type Chapter, type ReturnTo, type Step, uiText } from "./script";
+import { captionFor, chaptersFor, narrationId, RETURN_PATHS, TOUR_SCRIPT_VERSION, TOUR_TIMING, type Chapter, type ReturnTo, type Step, uiText } from "./script";
 
 /**
  * Runs the guided demo in the browser. It drives the REAL app: it finds elements by `data-tour` attributes only,
@@ -18,6 +18,7 @@ export const OPEN_GUIDE_EVENT = "reloop:open-demo-guide";
 export const START_EVENT = "reloop:start-tour";
 
 export interface TourState {
+  scriptVersion?: number;
   runId: string;
   chapter: number;
   step?: number;
@@ -54,7 +55,7 @@ export interface TourView {
   slate: "paypal-slate" | "paypal-slate-end" | null;
 }
 
-const IDLE: TourView = { status: "idle", chapterIndex: 0, chapterCount: CHAPTERS.length, title: "", caption: "", position: "bottom", elapsedMs: 0, speed: 1, pausedBy: null, showEndActions: false, viewingAs: null, narration: { enabled: true, volume: 1, blocked: false, forcedOff: false }, slate: null };
+const IDLE: TourView = { status: "idle", chapterIndex: 0, chapterCount: chaptersFor("/").length, title: "", caption: "", position: "bottom", elapsedMs: 0, speed: 1, pausedBy: null, showEndActions: false, viewingAs: null, narration: { enabled: true, volume: 1, blocked: false, forcedOff: false }, slate: null };
 const PRODUCES: Record<string, string> = { agent: "job", control: "paid", technician: "completed" };
 
 export const loadState = (): TourState | null => {
@@ -141,7 +142,7 @@ class TourController {
     const s = loadState();
     this.configureNarration(s);
     const flag = hasFlagCookie();
-    if (s && flag && Date.now() - s.heartbeat < STALE_MS) {
+    if (s && s.scriptVersion === TOUR_SCRIPT_VERSION && flag && Date.now() - s.heartbeat < STALE_MS) {
       this.state = s;
       this.returnTo = RETURN_PATHS.includes(s.returnTo) ? s.returnTo : "/";
       void this.loop();
@@ -171,7 +172,7 @@ class TourController {
       this.deps.notify(e instanceof Error ? e.message : "The guided demo could not start.");
       return;
     }
-    this.state = { runId, chapter: 0, step: 0, recording: document.documentElement.dataset.tourRecording === "true", narrationOff: this.narrator.settings.forcedOff, startedAt: Date.now(), pausedTotalMs: 0, speed: 1, heartbeat: Date.now(), returnTo, preserveSession: returnTo === "/", seededTechId, done: [], failures: 0 };
+    this.state = { scriptVersion: TOUR_SCRIPT_VERSION, runId, chapter: 0, step: 0, recording: document.documentElement.dataset.tourRecording === "true", narrationOff: this.narrator.settings.forcedOff, startedAt: Date.now(), pausedTotalMs: 0, speed: 1, heartbeat: Date.now(), returnTo, preserveSession: returnTo === "/", seededTechId, done: [], failures: 0 };
     this.returnTo = returnTo;
     this.deps.refresh(); // the header now shows the tour identity instead of the visitor's account
     saveState(this.state);
@@ -318,7 +319,8 @@ class TourController {
     const speaking = (key: string | undefined, el: Element | null) => {
       if (key) {
         this.emit({ caption: captionFor(key), position: this.positionFor(el) });
-        this.narrator.begin(key);
+        const id = narrationId(step);
+        if (id) this.narrator.begin(id);
       }
     };
     switch (step.t) {
@@ -334,7 +336,7 @@ class TourController {
         const path = step.to === "$jobPath" ? `/jobs/${job?.id ?? ""}` : step.to === "$seededTechPath" ? this.seededTechPath() : "/";
         if (`${location.pathname}${location.search}` !== path) this.deps.push(path);
         if (!(await r.until(() => `${location.pathname}${location.search}` === path, 10_000))) throw new TargetMissing(path);
-        await r.wait(600);
+        await r.wait(TOUR_TIMING.settle);
         return null;
       }
       case "wait": {
@@ -349,7 +351,7 @@ class TourController {
         if (!res.ok) throw new TargetMissing("tour role");
         this.emit({ viewingAs: step.role === "technician" ? `Technician (tour)${job?.techName ? `: ${job.techName}` : ""}` : "Owner (tour)" });
         this.deps.refresh();
-        await r.wait(1800);
+        await r.wait(TOUR_TIMING.action);
         return null;
       }
       case "capture": {
@@ -384,7 +386,7 @@ class TourController {
     }
     if ("cap" in step && step.cap) this.emit({ caption: captionFor(step.cap), position: this.positionFor(el) });
     el.scrollIntoView({ block: "center", behavior: reducedMotion() ? "auto" : "smooth" });
-    await r.wait(reducedMotion() ? 100 : 450);
+    await r.wait(reducedMotion() ? 100 : TOUR_TIMING.scroll);
     this.setRing(el);
     // Re-evaluate the caption position now that the target is scrolled into view.
     if ("cap" in step) speaking(step.cap, el);
@@ -397,7 +399,7 @@ class TourController {
         await r.wait(step.ms ?? 900);
         await r.finishNarration();
         (el as HTMLElement).click();
-        await r.wait(350);
+        await r.wait(TOUR_TIMING.afterClick);
         break;
       case "type": {
         const input = el as HTMLInputElement | HTMLTextAreaElement;
@@ -407,9 +409,9 @@ class TourController {
         for (let i = 1; i <= step.text.length; i++) {
           setNative(input, step.text.slice(0, i));
           input.dispatchEvent(new Event("input", { bubbles: true }));
-          await r.wait(28);
+          await r.wait(TOUR_TIMING.character);
         }
-        await r.wait(600);
+        await r.wait(TOUR_TIMING.settle);
         break;
       }
       case "upload": {
@@ -420,7 +422,7 @@ class TourController {
         dt.items.add(file);
         (el as HTMLInputElement).files = dt.files;
         el.dispatchEvent(new Event("change", { bubbles: true }));
-        await r.wait(1800);
+        await r.wait(TOUR_TIMING.action);
         break;
       }
     }

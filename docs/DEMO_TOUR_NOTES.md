@@ -1,6 +1,6 @@
 # Guided demo ("Run guided demo") notes
 
-A narrated tour that drives the **real app**: it types into the real agent form, clicks the real buttons and switches a **tour-only identity** (owner or technician), while a caption bar explains each step. Recorded narration extends each step until its sentence ends. The earlier silent measurement of 3:16 no longer describes narrated playback; the current manifest alone contains about 304 seconds of speech including the signup chapter. Measure the new full duration with `npm run verify:tour`; shorten the submission in editing.
+A narrated tour that drives the **real app**: it types into the real agent form, clicks the real buttons and switches a **tour-only identity** (owner or technician), while a caption bar explains each step. The default tour now targets **2 minutes 30 seconds at 1x**, excluding pauses and the final user decision. It reuses complete existing recordings at normal speed, narrates the main explanations and performs routine actions silently. Profile/CV and donation detours are omitted; approval, both PayPal editor slates, simulated payment, technician proof, owner confirmation, safety and impact remain. The signup entry adds one brief form explanation. Network and server waits can extend the duration; `npm run verify:tour` measures the home tour and fails its duration check above 150 seconds. No browser measurement of the shortened version has been made yet.
 
 > The reference files from the CampusSync tour (`docs/reference/*`) were not in this repo when it was built, so the design was done from the written brief. Nothing was ported.
 
@@ -28,9 +28,9 @@ A narrated tour that drives the **real app**: it types into the real agent form,
 
 Targets are found **only** by `data-tour="..."` attributes (no position-based selectors). `name@job` narrows to the element inside the tour job's own card or form, because the seeded technician board has other jobs.
 
-### Chapters (about 3 minutes at 1x)
+### Chapters (target 2:30 at 1x)
 
-1. The problem (landing page) 2. The agent (goal, budget, trace, rejected over-budget quote, quote) 3. You stay in control (Approve, PayPal button is **not** loaded, tour-only TOUR-SIMULATED hold, job page) 4. Technician side (tour identity switches to the technician, accept, start, proof photo, complete) 5. Confirm and pay out (owner, confirm, TOUR-SIMULATED payout, timeline) 6. Safety first (swollen battery, red stop, "DIY is not offered") 7. Proof, giving and impact (seeded technician profile, CV button not clicked, donate page with PayPal not loaded, impact) 8. Your turn (**Try the real sandbox checkout** opens the Demo guide, or **Finish**).
+1. The flow (landing page). 2. The agent (goal, budget, tool trace and quote). 3. You stay in control (Approve, editor slates, TOUR-SIMULATED payment and job page). 4. Technician side (tour identity, accept, start, photo, notes, complete). 5. Confirm and pay out (owner confirmation and simulated payout). 6. Safety first (swollen battery and DIY blocked). 7. Impact (tour data excluded). 8. Your turn (sandbox guide or Finish).
 
 Chapter 3 differs slightly from the brief: for agent-built jobs the PayPal button lives on the agent page (after Approve), not on the job page, so that is where it is highlighted before the tour moves to the job page.
 
@@ -51,7 +51,7 @@ If a target is missing the step is skipped with a console warning and the chapte
 ## Editing
 
 - Wording: edit `docs/tour-captions.json`. A caption must describe only what is on screen when it appears; `tests/tour-script.test.ts` fails if a caption has no target or the target does not exist in the markup.
-- Timing: the `ms` of each step in `lib/tour/script.ts` (scaled by the speed setting).
+- Timing: `compactChapter`, `SHORT_NARRATION` and `TOUR_TIMING` in `lib/tour/script.ts` define the default short tour. The full caption/target catalog is retained for reuse and validation. Steps with `narration: false` keep their captions and actions but do not play audio. The timing test reserves at least 12 seconds for network/target waits within the 150-second target at either entry point. Saved progress from the previous script version is cleaned rather than resumed at changed step indices.
 - New step: add the `data-tour` attribute to the element, then a step in `script.ts`.
 
 ## Verifying

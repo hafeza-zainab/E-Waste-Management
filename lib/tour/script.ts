@@ -6,7 +6,7 @@ import captionsJson from "../../docs/tour-captions.json";
  * caption can never promise something the page does not show. Targets ending in "@job" are narrowed to the tour's job.
  * No selector in this file is position-based.
  */
-export type Step =
+export type Step = (
   | { t: "slate"; id: "paypal-slate" | "paypal-slate-end"; cap: string; ms: number }
   | { t: "say"; cap: string; target: string; ms: number; optional?: boolean }
   | { t: "click"; target: string; cap?: string; ms?: number; optional?: boolean }
@@ -16,7 +16,8 @@ export type Step =
   | { t: "wait"; target: string; timeoutMs?: number }
   | { t: "nav"; to: "/" | "$jobPath" | "$seededTechPath" }
   | { t: "capture" } // reads job id, technician id and name from the quote card
-  | { t: "end"; cap: string };
+  | { t: "end"; cap: string }
+) & { narration?: false };
 
 export interface Chapter {
   id: string;
@@ -163,9 +164,46 @@ const BASE_CHAPTERS: Chapter[] = [
   },
 ];
 
-export const chaptersFor = (returnTo: ReturnTo): Chapter[] => (returnTo === "/signup" ? [ACCOUNTS_CHAPTER, ...BASE_CHAPTERS] : BASE_CHAPTERS);
-/** Every chapter of every entry point (used by tests). */
-export const CHAPTERS: Chapter[] = chaptersFor("/signup");
+export const TOUR_TARGET_MS = 150_000;
+export const TOUR_SCRIPT_VERSION = 2;
+export const TOUR_TIMING = { settle: 300, action: 600, scroll: 200, afterClick: 200, character: 16 } as const;
+
+// Keep whole existing recordings at normal pitch and speed. Routine actions
+// still execute, but no longer each need their own spoken explanation.
+const SHORT_NARRATION = new Set([
+  "accounts.form", "problem.flow", "agent.trace", "control.gate",
+  "control.tourpay", "technician.photo", "technician.complete",
+  "payout.confirm", "payout.paid", "safety.stop", "proof.impact", "turn.end",
+]);
+const compactChapter = (chapter: Chapter): Chapter => ({
+  ...chapter,
+  steps: chapter.steps.flatMap((step): Step[] => {
+    if (step.t === "say" && !SHORT_NARRATION.has(step.cap)) return [];
+    if (step.t === "slate") return [step];
+    const narration = "cap" in step && step.cap && !SHORT_NARRATION.has(step.cap) ? { narration: false as const } : {};
+    if (step.t === "click") return [{ ...step, ...narration, ms: 300 }];
+    if (step.t === "say") return [{ ...step, ms: Math.min(step.ms, 3000) }];
+    return [{ ...step, ...narration }];
+  }),
+});
+const SHORT_CHAPTERS = BASE_CHAPTERS.map(chapter => compactChapter(chapter.id === "proof" ? {
+  ...chapter,
+  title: "Impact",
+  steps: [
+    { t: "click", target: "nav-impact" },
+    { t: "wait", target: "impact-stats" },
+    { t: "say", cap: "proof.impact", target: "impact-stats", ms: sec(3) },
+  ],
+} : chapter));
+
+/** Default tour targets 2:30 at 1x, including action/network headroom. */
+export const chaptersFor = (returnTo: ReturnTo): Chapter[] => returnTo === "/signup"
+  ? [compactChapter(ACCOUNTS_CHAPTER), ...SHORT_CHAPTERS] : SHORT_CHAPTERS;
+/** Full caption/target catalog, including explanations omitted from the short tour. */
+export const CHAPTERS: Chapter[] = [ACCOUNTS_CHAPTER, ...BASE_CHAPTERS];
+
+export const narrationId = (step: Step): string | undefined => step.narration === false ? undefined
+  : step.t === "slate" ? step.id : "cap" in step ? step.cap : undefined;
 
 export const captionFor = (key: string): string => {
   const [group, name] = key.split(".");

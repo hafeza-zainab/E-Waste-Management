@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { destroyAllSessions, destroySession, getSessionUser } from "@/lib/auth/sessions";
+import { destroyAllSessions, destroySession, getSessionUser, sessionCookieOptions } from "@/lib/auth/sessions";
+import { SESSION_COOKIE } from "@/lib/auth/constants";
 
 export const runtime = "nodejs";
 
@@ -13,5 +14,10 @@ export async function POST(req: Request) {
   }
   await destroySession(await cookies());
   const wantsJson = (req.headers.get("accept") ?? "").includes("application/json");
-  return wantsJson ? NextResponse.json({ ok: true }) : NextResponse.redirect(new URL("/", req.url), 303);
+  // A relative redirect stays on the browser's public origin behind a reverse
+  // proxy; req.url can contain an internal server hostname or HTTP scheme.
+  const response = wantsJson ? NextResponse.json({ ok: true }) : new NextResponse(null, { status: 303, headers: { Location: "/" } });
+  response.cookies.set(SESSION_COOKIE, "", sessionCookieOptions(0));
+  response.headers.set("Cache-Control", "no-store");
+  return response;
 }

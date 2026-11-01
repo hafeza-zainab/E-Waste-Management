@@ -4,6 +4,7 @@ import { requirePrincipal } from "@/lib/session";
 import { Badge, Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
+import { ImageFileInput } from "@/components/image-file-input";
 import { deviceLabel } from "@/lib/jobs/device-label";
 import { formatUsd, platformFeeBps } from "@/lib/jobs/money";
 import { STATUS_LABELS, type JobStatus } from "@/lib/jobs/state-machine";
@@ -100,7 +101,7 @@ export default async function TechnicianPage() {
                 <input type="hidden" name="jobId" value={j.id} />
                 <div className="space-y-1">
                   <label htmlFor={`photo-${j.id}`} className="font-medium">Proof photo (required)</label>
-                  <input id={`photo-${j.id}`} data-tour="proof-photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp" required className="block w-full text-sm" />
+                  <ImageFileInput id={`photo-${j.id}`} data-tour="proof-photo" name="photo" required className="block w-full text-sm" />
                   <p className="text-sm text-muted">JPEG, PNG or WebP, up to 4 MB.</p>
                 </div>
                 <div className="space-y-1">
@@ -128,7 +129,7 @@ export default async function TechnicianPage() {
                 <form action={reuploadProofAction} className="space-y-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
                   <input type="hidden" name="jobId" value={j.id} />
                   <p className="font-semibold">The owner reported a problem: &ldquo;{j.problemReport}&rdquo;</p>
-                  <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" required className="block w-full" aria-label="New proof photo" />
+                  <ImageFileInput name="photo" required className="block w-full" aria-label="New proof photo" />
                   <textarea name="notes" rows={2} maxLength={1000} placeholder="What you fixed" className={field} />
                   <SubmitButton pendingText="Uploading…">Upload new proof</SubmitButton>
                 </form>

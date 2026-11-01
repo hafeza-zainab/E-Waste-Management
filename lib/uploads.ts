@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { MAX_UPLOAD_BYTES } from "./image-upload";
 
 /** Where uploads are stored. Served by app/uploads/[name]/route.ts (Next only serves public/ files that existed at build time). */
 export const uploadDir = () => process.env.UPLOAD_DIR || path.join(/*turbopackIgnore: true*/ process.cwd(), "public", "uploads");
 
-export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+export { MAX_UPLOAD_BYTES } from "./image-upload";
 type ImageType = "image/jpeg" | "image/png" | "image/webp";
 
 /** Identify an image by its magic bytes; never trust the client-supplied MIME type or filename. */
@@ -24,9 +25,19 @@ export interface SavedImage {
 
 /** Returns null when no file was provided; throws a user-facing Error when the file is invalid. */
 export async function saveImageUpload(file: FormDataEntryValue | null): Promise<SavedImage | null> {
-  if (!(file instanceof File) || file.size === 0) return null;
+  if (file === null) return null;
+  if (typeof file === "string") throw new Error("Photo must be an image file, not text.");
+  // Multipart parsers can supply File objects from a different realm. Do not
+  // silently discard those with an instanceof check against the global File.
+  if (file.size === 0) {
+    if (!file.name) return null; // browser's empty optional file input
+    throw new Error("The selected photo is empty. Please choose another image.");
+  }
   if (file.size > MAX_UPLOAD_BYTES) throw new Error("Photo is too large. The limit is 4 MB.");
-  const buf = Buffer.from(await file.arrayBuffer());
+  let buf: Buffer;
+  try { buf = Buffer.from(await file.arrayBuffer()); }
+  catch { throw new Error("Could not read the selected photo. Please select it again."); }
+  if (buf.length > MAX_UPLOAD_BYTES) throw new Error("Photo is too large. The limit is 4 MB.");
   const kind = sniff(buf);
   if (!kind) throw new Error("Photo must be a JPEG, PNG or WebP image.");
   const dir = uploadDir();

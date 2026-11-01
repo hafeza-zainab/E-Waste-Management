@@ -199,11 +199,26 @@ describe("sessions", () => {
     expect(await db.session.count()).toBe(2);
     const res = await logout(new Request("http://localhost/api/auth/logout", { method: "POST", headers: { accept: "application/json" } }));
     expect(res.status).toBe(200);
+    expect(res.cookies.get(SESSION_COOKIE)?.maxAge).toBe(0);
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
     expect(jar.has(SESSION_COOKIE)).toBe(false);
     expect(await db.session.count()).toBe(1);
     await login(req("/api/auth/login", { email: "ada@example.com", password: "correct horse battery" }));
     await logout(new Request("http://localhost/api/auth/logout?all=1", { method: "POST", headers: { accept: "application/json" } }));
     expect(await db.session.count()).toBe(0);
+  });
+  it("form logout redirects on the public origin instead of exposing a reverse proxy's internal URL", async () => {
+    await signup(req("/api/auth/signup", owner()));
+    const token = jar.get(SESSION_COOKIE)!;
+    const response = await logout(new Request("http://127.0.0.1:10000/api/auth/logout", {
+      method: "POST", headers: { host: "reloop.example.test", origin: "https://reloop.example.test" },
+    }));
+    expect(response.status).toBe(303);
+    expect(response.headers.get("Location")).toBe("/");
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(response.cookies.get(SESSION_COOKIE)?.maxAge).toBe(0);
+    expect(jar.has(SESSION_COOKIE)).toBe(false);
+    expect(await userForToken(token)).toBeNull();
   });
 });
 
