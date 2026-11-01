@@ -24,8 +24,11 @@ export interface SavedImage {
 }
 
 /** Returns null when no file was provided; throws a user-facing Error when the file is invalid. */
-export async function saveImageUpload(file: FormDataEntryValue | null): Promise<SavedImage | null> {
+export async function saveImageUpload(file: FormDataEntryValue | null, options: { optional?: boolean } = {}): Promise<SavedImage | null> {
   if (file === null) return null;
+  // Empty optional controls can be normalized differently by browser, multipart
+  // parser and Server Action transport. Do not depend on a sentinel filename.
+  if (options.optional && (file === "" || (typeof file !== "string" && file.size === 0))) return null;
   if (typeof file === "string") throw new Error("Photo must be an image file, not text.");
   // Multipart parsers can supply File objects from a different realm. Do not
   // silently discard those with an instanceof check against the global File.

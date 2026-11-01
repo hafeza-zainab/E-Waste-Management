@@ -40,7 +40,7 @@ export async function createDevice(formData: FormData) {
   try {
     await assertRate("diagnosis");
     await assertRate("upload");
-    const photo = await saveImageUpload(formData.get("photo"));
+    const photo = await saveImageUpload(formData.get("photo"), { optional: true });
     const tourRunId = await currentTourRunId(); // guided demo: scripted diagnosis only, record tagged for cleanup
     const result = await diagnose(intake, photo ? { mediaType: photo.mediaType, base64: photo.base64 } : undefined, { scripted: !!tourRunId });
     const who = await getPrincipalOrNull();
