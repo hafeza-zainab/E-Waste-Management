@@ -7,7 +7,7 @@
     "video": "node scripts/video.mjs",
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "start": "prisma migrate deploy && tsx prisma/seed.ts && next start",
+    "start": "tsx prisma/seed.ts && next start",
     "lint": "eslint",
     "verify:tour": "tsx scripts/verify-tour.ts",
     "verify:auth": "tsx scripts/verify-auth.ts",
