@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { connection } from "next/server";
 import { Card } from "@/components/ui/card";
 import { DonationsChart, PathBarChart } from "@/components/impact-charts";
 import { formatUsd } from "@/lib/jobs/money";
@@ -8,6 +9,8 @@ import { computeTotals, donationsByDay } from "@/lib/impact/totals";
 export const metadata = { title: "Impact" };
 
 export default async function ImpactPage() {
+  // SQLite is migrated/seeded at runtime; totals must reflect the current database.
+  await connection();
   const [events, repairs, jobs, donations, pickups] = await Promise.all([
     db.impactEvent.findMany({ select: { deviceId: true, outcome: true, ewasteKg: true, co2eKg: true, demo: true } }),
     db.verifiedRepair.count({ where: { job: { status: "payout_released", isTour: false } } }),
