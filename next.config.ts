@@ -27,9 +27,6 @@ const csp = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   experimental: { serverActions: { bodySizeLimit: "5mb" } },
   poweredByHeader: false,
   async headers() {

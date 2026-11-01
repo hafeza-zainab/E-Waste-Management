@@ -13,7 +13,7 @@ import os from "node:os";
 import path from "node:path";
 import { chromium, type Browser, type Page } from "playwright-core";
 import { PrismaClient } from "@prisma/client";
-import { audioSnapshot, mockTourAudio } from "./tour-audio-mock";
+import { audioSnapshot, mockTourAudio, narrationSequenceDifferences } from "./tour-audio-mock";
 import manifest from "../public/tour/audio/manifest.json";
 import { captionFor, chaptersFor } from "../lib/tour/script";
 
@@ -110,6 +110,7 @@ async function main() {
       const page = await ctx.newPage();
       const t0 = Date.now();
       await start(page);
+      check(await page.evaluate(() => typeof (window as unknown as { __name?: unknown }).__name === "function" && window.Audio.name === "RecordedAudio"), "browser helper and Audio mock installed before the app runs");
       if (vp.speed !== "1") await page.locator('[data-tour="tour-bar"] select').selectOption(vp.speed);
       let axed = false;
       const slates = new Set<string>();
@@ -134,7 +135,9 @@ async function main() {
         const played = (await audioSnapshot(page)).played;
         const available = new Set(manifest.steps.map(e => e.id));
         const expected = chaptersFor("/").flatMap(c => c.steps.flatMap(s => "cap" in s && s.cap ? ["id" in s ? s.id : s.cap] : [])).filter(id => available.has(id));
-        check(JSON.stringify(played) === JSON.stringify(expected), "recorded narration fires exactly once per available step, in order (including slates when generated)");
+        const sequence = narrationSequenceDifferences(expected, played);
+        check(sequence.ok, "recorded narration fires exactly once per available step, in order (including slates when generated)");
+        if (!sequence.ok) console.log(`  Sequence diagnostics: ${JSON.stringify({ ...sequence, expected, played })}`);
         for (const id of ["paypal-slate", "paypal-slate-end"]) if (!available.has(id)) console.log(`  NOTE  ${id} audio is not generated yet; banner tested, narration remains silent until generation and rebuild.`);
         await axeBar(page, `${vp.name}, closing caption`);
         await finishButton(page).click();
@@ -163,10 +166,15 @@ async function main() {
       }, mode);
       const page = await ctx.newPage();
       await page.goto(`${BASE}/?record=1${mode === "url-off" ? "&narration=off" : ""}`, { waitUntil: "networkidle" });
+      check(await page.evaluate(() => window.Audio.name === "RecordedAudio"), `${mode}: Audio mock installed`);
       await page.locator('[data-tour="start-tour"]').click();
       await bar(page).waitFor();
       await bar(page).locator("select").selectOption("2");
-      if (mode === "blocked") await page.getByRole("button", { name: "Tap to enable sound" }).waitFor();
+      if (mode === "blocked") {
+        await page.waitForFunction(() => (window as unknown as { __tourAudio: { attempts: { allowed: boolean }[] } }).__tourAudio.attempts.some(a => !a.allowed));
+        check((await audioSnapshot(page)).attempts.some(a => !a.allowed), "blocked: mock play() actually rejected with NotAllowedError");
+        await page.getByRole("button", { name: "Tap to enable sound" }).waitFor();
+      }
       await finishButton(page).waitFor({ timeout: 8 * 60_000 });
       check((await audioSnapshot(page)).played.length === 0, `${mode}: tour completes silently without replaying audio`);
       await finishButton(page).click();
@@ -218,6 +226,7 @@ async function main() {
         await page.waitForFunction(() => (window as unknown as { __tourAudio: { active: number } }).__tourAudio.active > 0);
         const retried = await audioSnapshot(page);
         check(retried.played[0] === currentAudio, "Tap to enable sound restarts the current step after reload");
+        check(retried.attempts.some(a => a.allowed && a.id === currentAudio && a.start === 0), "retried current audio starts from zero");
         await enableSound.waitFor({ state: "hidden" });
         await finishButton(page).waitFor({ timeout: 6 * 60_000 });
         check(!(await audioSnapshot(page)).played.some(id => completed.includes(id)), "reload does not replay completed steps in its chapter");
