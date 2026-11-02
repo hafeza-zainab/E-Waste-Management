@@ -65,6 +65,8 @@ More detail: [docs/architecture.md](docs/architecture.md).
 
 ## Exactly how AI is used
 
+ReLoop’s diagnosis, DIY guides and repair agent are built on Claude tool use (Anthropic API). The hosted demo runs scripted responses, marked ‘Scripted demo run’, so anyone can try it without keys or cost. Live mode turns on when ANTHROPIC_API_KEY is set. It is covered by automated tests with mocked API responses and has not been run against the live API.
+
 - **Diagnosis** (Claude structured output, zod-validated): causes, severity, safety risk, recommended path, parts and labour estimate.
 - **Safety gate** (plain code, not a prompt): DIY is only allowed for minor, low-risk problems; a model suggesting DIY for a swollen battery is overridden and the override is shown.
 - **DIY guide** generation (refused in code when DIY isn't allowed).
