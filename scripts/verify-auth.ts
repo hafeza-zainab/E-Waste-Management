@@ -112,18 +112,16 @@ async function main() {
       if (speed !== "1") await bar(p).locator("select").selectOption(speed);
     };
     const finishTour = async (p: Page, axeLabel?: string) => {
-      const finish = p.getByRole("button", { name: /^Finish$/ });
       const deadline = Date.now() + 6 * 60_000;
       let axed = !axeLabel;
       while (Date.now() < deadline) {
-        if (await finish.isVisible().catch(() => false)) break;
+        if (!(await bar(p).isVisible())) return;
         const text = await bar(p).innerText().catch(() => "");
         if (!axed && /Chapter [3-9]/.test(text)) { await axe(p, `caption bar (${axeLabel})`, '[data-tour="tour-bar"]'); axed = true; }
         if (/Tour ended early/.test(text)) throw new Error(`the tour ended early: ${text.replace(/\s+/g, " ")}`);
         await sleep(500);
       }
-      if (!(await finish.isVisible())) throw new Error("tour never reached its last chapter");
-      await finish.click();
+      throw new Error("tour did not finish automatically");
     };
     const stopAt = async (p: Page, chapter: number) => {
       await bar(p).getByText(new RegExp(`Chapter ${chapter} of`)).waitFor({ timeout: 4 * 60_000 });

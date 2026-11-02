@@ -1,8 +1,44 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { tour } from "../lib/tour/controller";
+import { TourAbort } from "../lib/tour/runner";
 import { browserDiagnostics, paypalRequests, scriptedTourMs } from "../scripts/tour-verification";
 import { chaptersFor, narrationId, TOUR_TARGET_MS } from "../lib/tour/script";
 import manifest from "../public/tour/audio/manifest.json";
 import { agentRunPath } from "../lib/agent/run-url";
+
+describe("automatic tour completion", () => {
+  it("waits for the final narration, then finishes without a user decision", async () => {
+    const controller = tour as unknown as {
+      runner: { finishNarration: () => Promise<void>; check: () => void };
+      narrator: { begin: (id: string) => void };
+      exec: (step: unknown, chapter: unknown) => Promise<unknown>;
+    };
+    const oldRunner = controller.runner;
+    const oldNarrator = controller.narrator;
+    let endSentence!: () => void;
+    const begin = vi.fn();
+    const check = vi.fn();
+    controller.runner = { finishNarration: () => new Promise<void>(resolve => { endSentence = resolve; }), check };
+    controller.narrator = { begin };
+    vi.stubGlobal("document", { querySelector: () => null });
+    try {
+      let finished = false;
+      const result = controller.exec({ t: "end", cap: "turn.end" }, {}).then(value => { finished = true; return value; });
+      await Promise.resolve();
+      expect(begin).toHaveBeenCalledWith("turn.end");
+      expect(finished).toBe(false);
+      endSentence();
+      expect(await result).toBe("finish");
+      expect(check).toHaveBeenCalledOnce();
+      controller.runner = { finishNarration: async () => {}, check: () => { throw new TourAbort(); } };
+      await expect(controller.exec({ t: "end", cap: "turn.end" }, {})).rejects.toThrow(TourAbort);
+    } finally {
+      controller.runner = oldRunner;
+      controller.narrator = oldNarrator;
+      vi.unstubAllGlobals();
+    }
+  });
+});
 
 describe("2:45 guided tour", () => {
   it("fits the recorded audio and scripted actions inside 2:45 with at least 12 seconds for network waits, at either entry point", () => {

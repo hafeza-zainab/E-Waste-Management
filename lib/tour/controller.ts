@@ -366,10 +366,8 @@ class TourController {
         speaking(step.cap, el);
         this.setRing(null);
         await r.finishNarration();
-        this.emit({ showEndActions: true, position: "bottom" });
-        const how = await new Promise<"finish" | "real">((resolve) => (this.endResolve = resolve));
-        if (this.runner.aborted) throw new TourAbort(); // Stop pressed: stop() already cleaned up
-        return how;
+        r.check(); // Stop/Skip during the final sentence still takes effect.
+        return "finish";
       }
       default:
         break;

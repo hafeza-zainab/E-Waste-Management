@@ -99,7 +99,6 @@ async function main() {
       await p.locator('[data-tour="start-tour"]').click();
       await bar(p).waitFor({ timeout: 20000 });
     };
-    const finishButton = (p: Page) => p.getByRole("button", { name: /^Finish$/ });
     const axeBar = async (p: Page, label: string) => {
       await p.evaluate(axeSource);
       const v = await p.evaluate(async () => {
@@ -149,7 +148,7 @@ async function main() {
         try {
           const deadline = Date.now() + 8 * 60_000;
           while (Date.now() < deadline) {
-            if (await finishButton(page).isVisible().catch(() => false)) break;
+            if (!(await bar(page).isVisible())) break;
             const slate = page.locator('[data-tour="paypal-slate-banner"]');
           if (await page.locator('[data-tour="safety-stop"]').isVisible()) safetyVisible = true;
             if (await slate.isVisible()) {
@@ -162,9 +161,9 @@ async function main() {
             await page.waitForTimeout(500);
           }
           const took = Date.now() - t0;
-          check(await finishButton(page).isVisible(), `tour reached its last chapter in ${mmss(took)} (${took} ms)`);
+          check(!(await bar(page).isVisible()), `tour finished automatically in ${mmss(took)} (${took} ms)`);
           if (vp.speed === "1") check(took <= TOUR_TARGET_MS, `1x tour fits the 2:45 budget (${mmss(took)}; ${took} ms)`);
-          if (vp.speed === "1") console.log(`  MEASURED narrated home tour at 1x: ${mmss(took)} (${took} ms); includes action waits, excludes final user decision.`);
+          if (vp.speed === "1") console.log(`  MEASURED narrated home tour at 1x: ${mmss(took)} (${took} ms); includes action waits and automatic completion.`);
           check(slates.has("paypal-slate") && slates.has("paypal-slate-end"), "both editor slate steps displayed");
           const played = (await audioSnapshot(page)).played;
           const available = new Set(manifest.steps.map(e => e.id));
@@ -174,12 +173,10 @@ async function main() {
           check(sequence.ok, "recorded narration fires exactly once per available step, in order (including slates when generated)");
           if (!sequence.ok) console.log(`  Sequence diagnostics: ${JSON.stringify({ ...sequence, expected, played, safetyVisible, warnings: seen.warnings })}`);
           for (const id of ["paypal-slate", "paypal-slate-end"]) if (!available.has(id)) console.log(`  NOTE  ${id} audio is not generated yet; banner tested, narration remains silent until generation and rebuild.`);
-          await axeBar(page, `${vp.name}, closing caption`);
-          await finishButton(page).click();
           await page.waitForURL(`${BASE}/`, { timeout: 15000 });
           await bar(page).waitFor({ state: "detached", timeout: 15000 });
-          check((await audioSnapshot(page)).active === 0, "Finish leaves no audio playing");
-          pass("Finish returned to the landing page and removed the caption bar");
+          check((await audioSnapshot(page)).active === 0, "automatic completion leaves no audio playing");
+          pass("automatic completion returned to the landing page and removed the caption bar");
         } catch (e) {
           fail(`tour did not finish: ${e instanceof Error ? e.message.split("\n")[0] : e}`);
           await page.screenshot({ path: path.join(tmp, `fail-${vp.w}.png`) }).catch(() => {});
@@ -214,9 +211,8 @@ async function main() {
           check((await audioSnapshot(page)).attempts.some(a => !a.allowed), "blocked: mock play() actually rejected with NotAllowedError");
           await page.getByRole("button", { name: "Tap to enable sound" }).waitFor();
         }
-        await finishButton(page).waitFor({ timeout: 8 * 60_000 });
+        await bar(page).waitFor({ state: "detached", timeout: 8 * 60_000 });
         check((await audioSnapshot(page)).played.length === 0, `${mode}: tour completes silently without replaying audio`);
-        await finishButton(page).click();
         await bar(page).waitFor({ state: "detached" });
         check((await audioSnapshot(page)).active === 0, `${mode}: Finish cancels audio`);
         check(seen.consoleErrors.length === 0 && paypalRequests(seen.requests).length === 0, `${mode}: zero console errors or PayPal requests; ${diagnostics(seen)}`);
